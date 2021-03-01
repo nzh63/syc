@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>SyC - A compiler for SysY</title>
+    <meta charset="utf-8">
+    <script src="https://cdn.bootcdn.net/ajax/libs/vue/2.6.12/vue.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/element-ui/2.15.0/index.min.js"></script>
+    <link href="https://cdn.bootcdn.net/ajax/libs/element-ui/2.15.0/theme-chalk/index.min.css" rel="stylesheet">
+    <style>
+        .el-divider--vertical {
+            height: auto;
+        }
+
+        .el-textarea>textarea {
+            font-family: consolas;
+            height: 100% !important;
+        }
+
+        html,
+        body,
+        #app,
+        .el-container,
+        .el-main>div {
+            height: 100%;
+            max-height: 100%;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <el-container>
+            <el-header height="auto" style="text-align:center">
+                <h1>SyC Live Demo</h1>
+                <el-switch style="display: inline" v-model="optimization" active-text="Optimization">
+                </el-switch>
+                <el-button @click="compile" :disabled="!!status">{{status||'compile'}}</el-button>
+            </el-header>
+            <el-main>
+                <div style="display:flex;width:100%;max-height:100%;">
+                    <el-input type="textarea" :autosize="{ minRows: 10 }" placeholder="Code"
+                        style="flex-grow:1;max-height:100%;" v-model="code">
+                    </el-input>
+                    <el-divider direction="vertical" style="height:inherit"></el-divider>
+                    <div style="flex-grow:1;width:100%;overflow:auto;">
+                        <el-collapse v-model="activeNames">
+                            <el-collapse-item title="AST" name="1">
+                                <el-tree default-expand-all :data="ast"></el-tree>
+                            </el-collapse-item>
+                            <el-collapse-item title="IR" name="2">
+                                <div style="white-space:break-spaces;font-family:consolas;">{{ir}}</div>
+                            </el-collapse-item>
+                            <el-collapse-item title="Assembly" name="3">
+                                <div style="white-space:break-spaces;font-family:consolas;">{{assembly}}</div>
+                            </el-collapse-item>
+                        </el-collapse>
+                    </div>
+                </div>
+            </el-main>
+            <el-footer style="text-align:center">
+                Copyright (C) 2020 nzh63, skywf21
+            </el-footer>
+        </el-container>
+    </div>
+    <script>
+        var Module = {
+            noInitialRun: true,
+            print: msg => app.$data.assembly += msg + '\n',
+            printErr(msg) {
+                msg = '' + msg;
+                if (msg.startsWith('└') || msg.startsWith('│')) {
+                    app.addAstNode(msg);
+                } else {
+                    app.$data.ir += msg + '\n'
+                }
+            },
+            onRuntimeInitialized() {
+                app.compile();
+            },
+            setStatus(status) {
+                app.$data.status = status;
+            }
+        };
+    </script>
+    <script type="text/javascript" src="./syc.js"></script>
+    <script>
+        Vue.use(ELEMENT);
+        var app = new Vue({
+            el: '#app',
+            data: {
+                status: 'Downloading...',
+                activeNames: ['3'],
+                optimization: true,
+                code:
+                    `const int N = 1024;
+void mm(int n, int A[][N], int B[][N], int C[][N]) {
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            C[i][j] = 0;
+        }
+    }
+    for (int k = 0; k < n; k++) {
+        for (int i = 0; i < n; i++) {
+            if (A[i][k] == 0) {
+                continue;
+            }
+            for (int j = 0; j < n; j++) {
+                C[i][j] = C[i][j] + A[i][k] * B[k][j];
+            }
+        }
+    }
+}
+int A[N][N];
+int B[N][N];
+int C[N][N];
+int main(){
+    int n = getint();
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            A[i][j] = getint();
+        }
+    }
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            B[i][j] = getint();
+        }
+    }
+    starttime();
+    for (int i = 0; i < 5; i++) {
+        mm(n, A, B, C);
+        mm(n, A, C, B);
+    }
+    int ans = 0;
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < n; j++) {
+            ans = ans + B[i][j];
+        }
+    }
+    stoptime();
+    putint(ans);
+    putch(10);
+    return 0;
+}
+`,
+                assembly: '',
+                ast: [{ label: '...' }],
+                cur: null,
+                curLevel: 1,
+                ir: '',
+            },
+            methods: {
+                compile() {
+                    this.assembly = '';
+                    this.ir = '';
+                    this.ast = [{ label: '...' }];
+                    this.cur = this.ast[0];
+                    this.curLevel = 1;
+                    const filename = 'input' + Math.random();
+                    Module.FS.createDataFile('/', filename, this.code, 1, 1, 1);
+                    args = ['/' + filename, '-print_ast', '-print_ir'];
+                    if (this.optimization) args.push('-O2');
+                    else args.push('-O0');
+                    Module.callMain(args);
+                    Module.FS.unlink('/' + filename);
+                },
+                addAstNode(msg) {
+                    let level = msg.match(/│|└|├/g).length;
+                    msg = msg.replace(/│|└|├|──/g, '').trim();
+                    if (level == 1) {
+                        this.ast = [{ label: msg }];
+                        this.cur = this.ast[0];
+                    } else {
+                        while (level <= this.curLevel) {
+                            if (this.cur.father) this.cur = this.cur.father;
+                            else this.cur = this.ast[0];
+                            this.curLevel--;
+                        }
+                        this.cur.children = this.cur.children || [];
+                        this.cur.children.push({ label: msg, father: this.cur })
+                        this.cur = this.cur.children[this.cur.children.length - 1];
+
+                    }
+                    this.curLevel = level;
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
