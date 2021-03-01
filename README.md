@@ -19,7 +19,14 @@ OPTIONS:
   -yydebug      Enable debug of yacc parsers.
   -print_ast    Print the AST ro stderr.
   -print_ir     Print the IR ro stderr.
+
 ```
+
+## Test
+
+1. Install [node.js](https://nodejs.org), `arm-linux-gnueabihf-gcc` and`qemu-arm` .
+2. `cd build && make test`
+
 ## IR操作数符号说明
 
 |符号|          说明          |

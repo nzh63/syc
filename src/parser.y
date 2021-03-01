@@ -24,7 +24,8 @@ extern int yydebug;
 
 extern int yylex();
 extern int yyget_lineno();
-void yyerror(const char *s) { std::printf("Error(line: %d): %s\n", yyget_lineno(), s); if (!yydebug) std::exit(1); }
+extern int yylex_destroy();
+void yyerror(const char *s) { std::printf("Error(line: %d): %s\n", yyget_lineno(), s); yylex_destroy(); if (!yydebug) std::exit(1); }
 #define YYERROR_VERBOSE true
 #define YYDEBUG 1
 %}

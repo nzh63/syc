@@ -16,3 +16,15 @@ add_executable(syc
     ${BISON_Parser_OUTPUTS}
     ${FLEX_Scanner_OUTPUTS}
 )
+
+add_custom_command(OUTPUT test_task
+                   COMMAND node ${PROJECT_SOURCE_DIR}/test/test.js
+                   VERBATIM
+)
+add_custom_target(test DEPENDS test_task)
+
+add_custom_command(OUTPUT test_performance_task
+                   COMMAND node ${PROJECT_SOURCE_DIR}/test/test_performance.js
+                   VERBATIM
+)
+add_custom_target(test_performance DEPENDS test_performance_task)

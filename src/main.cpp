@@ -26,12 +26,16 @@
 
 extern NRoot* root;
 extern int yyparse();
+extern int yylex_destroy();
+extern void yyset_lineno(int _line_number);
 
 constexpr auto N = 3;
 
 int main(int argc, char** argv) {
   config::parse_arg(argc, argv);
+  yyset_lineno(1);
   yyparse();
+  yylex_destroy();
   if (config::print_ast) root->print();
   ContextIR ctx;
   IRList ir;

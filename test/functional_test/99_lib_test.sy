@@ -1,0 +1,8 @@
+int main() {
+    _sysy_l1[_SYSY_N / 2] =  1;
+    // "A%d%c"
+    _sysy_l1[0] = 0x25642541;
+    _sysy_l1[1] = 0x63;
+    putf(_sysy_l1, 1, 0x42);
+    return _sysy_l1[_SYSY_N / 2];
+}

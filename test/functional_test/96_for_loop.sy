@@ -1,0 +1,10 @@
+int a;
+int main() {
+  int sum = 0;
+  int init = a = 0;
+  for (int i, i = init; i <= 100; i++, i = i + 1, --i) {
+    sum = sum + i;
+  }
+  putint(sum);
+  return 0;
+}
