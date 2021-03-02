@@ -38,10 +38,11 @@ using namespace std;
 namespace {
 constexpr bitset<ContextASM::reg_count> non_volatile_reg = 0b11111110000;
 
-void generate_function_asm(IRList& irs, ostream& out, IRList::iterator begin,
-                           IRList::iterator end) {
+void generate_function_asm(IRList& irs, IRList::iterator begin,
+                           IRList::iterator end, ostream& out,
+                           ostream& log_out) {
   assert(begin->op_code == IR::OpCode::FUNCTION_BEGIN);
-  ContextASM ctx(&irs, begin, out);
+  ContextASM ctx(&irs, begin, log_out);
 
   // 标号
   for (auto it = begin; it != end; it++) {
@@ -66,8 +67,8 @@ void generate_function_asm(IRList& irs, ostream& out, IRList::iterator begin,
   ctx.stack_size[0] = ctx.has_function_call ? 4 : 0;
 
   for (auto it = begin; it != end; it++) {
-    out << "# " << ctx.ir_to_time[&*it] << " ";
-    it->print(out);
+    log_out << "# " << ctx.ir_to_time[&*it] << " ";
+    it->print(log_out);
   }
 
   for (auto it = begin; it != end; it++) {
@@ -84,14 +85,15 @@ void generate_function_asm(IRList& irs, ostream& out, IRList::iterator begin,
   // 寄存器分配
   for (const auto& i : ctx.var_define_timestamp_heap) {
     int cur_time = i.first;
+    auto var_name = i.second;
     ctx.expire_old_intervals(cur_time);
 
-    if (ctx.var_in_reg(i.second)) {
+    if (ctx.var_in_reg(var_name)) {
       // TODO: 有这种情况吗????
       continue;
     } else {
-      if (i.second.substr(0, 5) == "$arg:") {
-        int reg = stoi(i.second.substr(5));
+      if (var_name.substr(0, 5) == "$arg:") {
+        int reg = stoi(var_name.substr(5));
         if (ctx.used_reg[reg]) {
           string cur_var = ctx.reg_to_var[reg];
           if (ctx.find_free_reg(4) != -1) {
@@ -108,14 +110,14 @@ void generate_function_asm(IRList& irs, ostream& out, IRList::iterator begin,
             }
           }
         }
-        ctx.get_specified_reg_for(i.second, reg);
+        ctx.get_specified_reg_for(var_name, reg);
       } else {
-        if (i.second[0] != '%') continue;
+        if (var_name[0] != '%') continue;
         // 与期间内固定分配寄存器冲突
         bool conflict = false;
-        int latest = ctx.var_latest_use_timestamp[i.second];
+        int latest = ctx.var_latest_use_timestamp[var_name];
         for (const auto& j : ctx.var_define_timestamp_heap) {
-          if (j.first < i.first) continue;
+          if (j.first <= cur_time) continue;
           if (j.first > latest) break;
           if (j.second.substr(0, 5) == "$arg:") {
             conflict = true;
@@ -124,15 +126,15 @@ void generate_function_asm(IRList& irs, ostream& out, IRList::iterator begin,
         }
 
         if (ctx.find_free_reg(conflict ? 4 : 0) != -1) {
-          ctx.get_specified_reg_for(i.second,
+          ctx.get_specified_reg_for(var_name,
                                     ctx.find_free_reg(conflict ? 4 : 0));
         } else {
           string cur_max = ctx.select_var_to_overflow(conflict ? 4 : 0);
-          if (ctx.var_latest_use_timestamp[i.second] <
+          if (ctx.var_latest_use_timestamp[var_name] <
               ctx.var_latest_use_timestamp[cur_max]) {
-            ctx.get_specified_reg_for(i.second, ctx.var_to_reg[cur_max]);
+            ctx.get_specified_reg_for(var_name, ctx.var_to_reg[cur_max]);
           } else {
-            ctx.overflow_var(i.second);
+            ctx.overflow_var(var_name);
           }
         }
       }
@@ -143,8 +145,8 @@ void generate_function_asm(IRList& irs, ostream& out, IRList::iterator begin,
   for (auto it = begin; it != end; it++) {
     auto& ir = *it;
     auto& stack_size = ctx.stack_size;
-    out << "#";
-    ir.print(out);
+    log_out << "#";
+    ir.print(log_out);
 
     if (ir.op_code == IR::OpCode::FUNCTION_BEGIN) {
       out << ".text" << endl;
@@ -544,12 +546,12 @@ void generate_function_asm(IRList& irs, ostream& out, IRList::iterator begin,
 }  // namespace
 }  // namespace
 
-void generate_asm(IRList& irs, ostream& out) {
+void generate_asm(IRList& irs, ostream& out, ostream& log_out) {
   out << R"(
-    .macro mov32, reg, val
-        movw \reg, #:lower16:\val
-        movt \reg, #:upper16:\val
-    .endm
+.macro mov32, reg, val
+    movw \reg, #:lower16:\val
+    movt \reg, #:upper16:\val
+.endm
   )" << endl;
   IRList::iterator function_begin_it;
   for (auto outter_it = irs.begin(); outter_it != irs.end(); outter_it++) {
@@ -567,7 +569,13 @@ void generate_asm(IRList& irs, ostream& out) {
     } else if (ir.op_code == IR::OpCode::FUNCTION_BEGIN) {
       function_begin_it = outter_it;
     } else if (ir.op_code == IR::OpCode::FUNCTION_END) {
-      generate_function_asm(irs, out, function_begin_it, outter_it);
+      generate_function_asm(irs, function_begin_it, outter_it, out, log_out);
     }
   }
+}
+
+void generate_asm(IRList& irs, ostream& out) {
+  ofstream null;
+  null.setstate(std::ios_base::badbit);
+  generate_asm(irs, out, null);
 }

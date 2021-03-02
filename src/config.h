@@ -24,6 +24,7 @@ namespace config {
 extern int optimize_level;
 extern bool print_ast;
 extern bool print_ir;
+extern bool print_log;
 extern std::ostream* out;
 
 void parse_arg(int argc, char** argv);

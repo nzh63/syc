@@ -44,7 +44,10 @@ int main(int argc, char** argv) {
   if (config::print_ir)
     for (auto& i : ir) i.print(std::cerr, true);
   std::stringstream buffer[N];
-  generate_asm(ir, buffer[0]);
+  if (config::print_log)
+    generate_asm(ir, buffer[0], buffer[0]);
+  else
+    generate_asm(ir, buffer[0]);
   if (config::optimize_level > 0) {
     for (int i = 0; i < N - 1; i++) {
       optimize_asm(buffer[i], buffer[i + 1]);

@@ -25,6 +25,7 @@ int optimize_level = 0;
 std::ostream* out = &std::cout;
 bool print_ast = false;
 bool print_ir = false;
+bool print_log = false;
 
 void parse_arg(int argc, char** argv) {
   char* in = NULL;
@@ -46,6 +47,8 @@ void parse_arg(int argc, char** argv) {
         print_ast = true;
       else if (std::string("-print_ir") == argv[i])
         print_ir = true;
+      else if (std::string("-print_log") == argv[i])
+        print_log = true;
     } else {
       if (s == 1) {
         if (std::string("-") == argv[i])
