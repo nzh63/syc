@@ -12,11 +12,23 @@ const EXE_TMP_FILE = path.join(TMP_DIR, '${name}.out');
 const OPT = ['-O2'];
 const WORKS = 22
 
+let passCount = 0, failCount = 0;
+
 process.on('SIGINT', () => {
-	     process.exit();
+    process.exit();
 });
 process.on('exit', () => {
-	    fs.rmdirSync(TMP_DIR, { recursive: true });
+    console.log();
+    if (passCount > 0) console.log(`    \x1B[32m${passCount} pass\x1B[0m`);
+    if (failCount > 0) console.log(`    \x1B[31m${failCount} fail\x1B[0m`);
+    if (failCount === 0) fs.rmdirSync(TMP_DIR, { recursive: true });
+});
+
+process.on('SIGINT', () => {
+    process.exit();
+});
+process.on('exit', () => {
+    fs.rmdirSync(TMP_DIR, { recursive: true });
 });
 
 async function doTest(path, name, opt = '-O0') {
@@ -26,7 +38,7 @@ async function doTest(path, name, opt = '-O0') {
     try {
         await exec(`${EXE_PATH} ${path}.sy ${opt} -o ${ASM_TMP_FILE.replace('${name}', name + opt)}`, { encoding: 'utf8' });
         await exec(`arm-linux-gnueabihf-gcc -march=armv7-a ${ASM_TMP_FILE.replace('${name}', name + opt)} -L. -lsysy -o ${EXE_TMP_FILE.replace('${name}', name + opt)} -static -g`, { encoding: 'utf8', cwd: __dirname });
-	beginTime = new Date();
+        beginTime = new Date();
         let exe = child_process.spawn('qemu-arm-static', [EXE_TMP_FILE.replace('${name}', name + opt)], { encoding: 'utf8' });
         try { exe.stdin.write(await fs.promises.readFile(path + '.in', { encoding: 'utf8' }) + '\n'); } catch (e) { }
         exe.stdout.on('data', (data) => {
@@ -107,8 +119,5 @@ async function doTest(path, name, opt = '-O0') {
         })())
     }
     await Promise.all(works);
-    console.log();
-    if (passCount > 0) console.log(`    \x1B[32m${passCount} pass\x1B[0m`);
-    if (failCount > 0) console.log(`    \x1B[31m${failCount} fail\x1B[0m`);
     process.exit(failCount == 0 ? 0 : 1);
 })();

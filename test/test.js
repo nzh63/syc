@@ -12,11 +12,16 @@ const EXE_TMP_FILE = path.join(TMP_DIR, '${name}.out');
 const OPT = ['-O0', '-O2'];
 const WORKS = 8;
 
+let passCount = 0, failCount = 0;
+
 process.on('SIGINT', () => {
-     process.exit();
+    process.exit();
 });
 process.on('exit', () => {
-    fs.rmdirSync(TMP_DIR, { recursive: true });
+    console.log();
+    if (passCount > 0) console.log(`    \x1B[32m${passCount} pass\x1B[0m`);
+    if (failCount > 0) console.log(`    \x1B[31m${failCount} fail\x1B[0m`);
+    if (failCount === 0) fs.rmdirSync(TMP_DIR, { recursive: true });
 });
 
 async function doTest(path, name, opt = '-O0') {
@@ -71,7 +76,6 @@ async function doTest(path, name, opt = '-O0') {
 (async function () {
     const tasks = [];
     const works = [];
-    let passCount = 0, failCount = 0;
     const dir = fs.readdirSync(TEST_PATH);
     for (const filePath of dir) {
         if (!/\.sy$/.test(filePath)) continue;
@@ -111,8 +115,5 @@ async function doTest(path, name, opt = '-O0') {
         })())
     }
     await Promise.all(works);
-    console.log();
-    if (passCount > 0) console.log(`    \x1B[32m${passCount} pass\x1B[0m`);
-    if (failCount > 0) console.log(`    \x1B[31m${failCount} fail\x1B[0m`);
     process.exit(failCount == 0 ? 0 : 1);
 })();
