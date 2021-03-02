@@ -226,7 +226,7 @@ void NFunctionDefine::generate_ir(ContextIR& ctx, IRList& ir) {
   }
   this->body.generate_ir(ctx, ir);
   if (this->return_type == INT) {
-    ir.emplace_back(IR::OpCode::RET, 0);
+    ir.emplace_back(IR::OpCode::RET, OpName(), 0);
   } else {
     ir.emplace_back(IR::OpCode::RET);
   }
