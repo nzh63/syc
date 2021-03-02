@@ -295,9 +295,9 @@ void ContextASM::load(string reg, OpName op, ostream& out) {
             if (offset > -4096 && offset < 4096) {
               out << "    LDR " << reg << ", [sp,#" << offset << ']' << endl;
             } else {
-              out << "    MOV32 r11, " << offset << endl;
-              out << "    ADD r11, sp, r11" << endl;
-              out << "    LDR " << reg << ", [r11,#0]" << endl;
+              out << "    MOV32 " << reg << ", " << offset << endl;
+              out << "    ADD " << reg << ", sp, " << reg << endl;
+              out << "    LDR " << reg << ", [" << reg << ",#0]" << endl;
             }
           }
         }
@@ -313,9 +313,9 @@ void ContextASM::load(string reg, OpName op, ostream& out) {
         if (offset > -4096 && offset < 4096) {
           out << "    LDR " << reg << ", [sp,#" << offset << ']' << endl;
         } else {
-          out << "    MOV32 r11, " << offset << endl;
-          out << "    ADD r11, sp, r11" << endl;
-          out << "    LDR " << reg << ", [r11,#0]" << endl;
+          out << "    MOV32 " << reg << ", " << offset << endl;
+          out << "    ADD " << reg << ", sp, " << reg << endl;
+          out << "    LDR " << reg << ", [" << reg << ",#0]" << endl;
         }
       }
     }
@@ -337,10 +337,9 @@ void ContextASM::store_to_stack_offset(string reg, int offset, ostream& out,
 void ContextASM::load_from_stack_offset(string reg, int offset, ostream& out,
                                         string op) {
   if (!(offset > -4096 && offset < 4096)) {
-    string tmp_reg = reg == "r11" ? "r12" : "r11";
-    load_imm(tmp_reg, offset, out);
-    out << "    ADD " << tmp_reg << ", sp, " << tmp_reg << endl;
-    out << "    " << op << " " << reg << ", [" << tmp_reg << ",#0]" << endl;
+    load_imm(reg, offset, out);
+    out << "    ADD " << reg << ", sp, " << reg << endl;
+    out << "    " << op << " " << reg << ", [" << reg << ",#0]" << endl;
   } else {
     out << "    " << op << " " << reg << ", [sp,#" << offset << "]" << endl;
   }
@@ -353,8 +352,10 @@ void ContextASM::store_to_stack(string reg, OpName op, ostream& out,
   if (op.name[0] == '%') {
     store_to_stack_offset(reg, resolve_stack_offset(op.name), out, op_code);
   } else if (op.name[0] == '@') {
-    out << "    MOV32 r11, " << rename(op.name) << endl;
-    out << "    " << op_code << " " << reg << ", [r11,#0]" << endl;
+    string tmp_reg = reg == "r11" ? "r12" : "r11";
+    out << "    MOV32 " << tmp_reg << ", " << rename(op.name) << endl;
+    out << "    " << op_code << " " << reg << ", [" << tmp_reg << ",#0]"
+        << endl;
   } else if (op.name[0] == '$') {
     int offset = resolve_stack_offset(op.name);
     store_to_stack_offset(reg, offset, out, op_code);
