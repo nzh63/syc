@@ -27,29 +27,27 @@ using namespace std;
 
 namespace {
 std::string opt_asm1(std::string line1) {
-  // out <<"----------------------------" <<line1 <<"调用optasm1" <<
-  // std::endl;
   std::vector<string> temp1;
   std::string tar_line;
   stringstream s0(line1);
   string token;
   while (s0 >> token) {
-    if (token[token.length() - 1] == ',')
-      token = token.substr(0, token.length() - 1);
+    if (token[token.length() - 1] == ',') token.pop_back();
 
     temp1.emplace_back(token);
   }
   // ADD R0,R1,#0  => MOV R0,R1
-  // for (int i = 0; i < temp1.size(); i++) {
-  //   out << temp1[i] << "\t";
-  // }
-  if (temp1[0].compare("ADD") == 0 && temp1[3].compare("#0") == 0) {
+  if (temp1[0] == "ADD" && temp1[3].compare("#0") == 0) {
     tar_line.append("    MOV ");
     tar_line.append(temp1[1]);
     tar_line.append(", ");
     tar_line.append(temp1[2]);
     // out << "tar_line is "<< tar_line <<std::endl;
     return tar_line;
+  }
+  // MOV r0, r0 => <empty-string>
+  if (temp1[0] == "MOV" && temp1[1] == temp1[2]) {
+    return "";
   }
   return line1;
 }
@@ -118,11 +116,12 @@ void optimize_asm(istream& in, ostream& out) {
     string token;
     if (ss >> token) {
       if (token[0] == ('#')) {
-        // out << line1 << std::endl;
+        out << line1 << std::endl;
         continue;
       } else {
         //先窗口为1优化下
         line1 = opt_asm1(line1);
+        if (line1.empty()) continue;
         // out << line1 << std::endl;
         //然后是窗口2
         if (length == 0) {
