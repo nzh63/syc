@@ -230,6 +230,58 @@ void local_common_constexpr_function(
     }
   }
 }
+
+// MOV %42, some_thing
+// ...
+// PHI_MOV %43, %42     # %42 only be used here
+// =>
+// MOV %43, some_thing  # rename %42 to %43
+// ...
+// PHI_MOV %43, %43
+void optimize_phi_var(IRList &ir) {
+  std::map<std::string, int> use_count;
+  std::map<std::string, std::string> replace_table;
+  for (const auto &i : ir) {
+#define F(op1)                                         \
+  if (i.op1.type == OpName::Type::Var) {               \
+    if (use_count.find(i.op1.name) == use_count.end()) \
+      use_count[i.op1.name] = 0;                       \
+    use_count[i.op1.name]++;                           \
+  }
+    F(op1)
+    F(op2)
+    F(op3)
+#undef F
+  }
+  for (auto it = ir.begin(); it != ir.end(); it++) {
+    if (it->op_code == IR::OpCode::PHI_MOV) {
+      if (it->op1.type == OpName::Type::Var && use_count[it->op1.name] == 1) {
+        int line = 10;
+        if (it == ir.begin()) continue;
+        auto it2 = it;
+        do {
+          it2 = std::prev(it2);
+          if (it2->dest.type == OpName::Type::Var &&
+              it2->dest.name == it->op1.name) {
+            replace_table[it2->dest.name] = it->dest.name;
+          }
+        } while (it2 != ir.begin());
+      }
+    }
+  }
+  for (auto &i : ir) {
+#define F(op1)                                                 \
+  if (i.op1.type == OpName::Type::Var) {                       \
+    if (replace_table.find(i.op1.name) != replace_table.end()) \
+      i.op1.name = replace_table[i.op1.name];                  \
+  }
+    F(dest)
+    F(op1)
+    F(op2)
+    F(op3)
+#undef F
+  }
+}
 }  // namespace
 
 void optimize_ir(IRList &ir) {
@@ -237,6 +289,7 @@ void optimize_ir(IRList &ir) {
   for (int i = 0; i < 2; i++) {
     local_common_subexpression_elimination(ir);
     local_common_constexpr_function(ir, constexpr_function);
+    optimize_phi_var(ir);
     dead_code_elimination(ir);
   }
 }
