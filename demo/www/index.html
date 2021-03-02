@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>SyC - A compiler for SysY</title>
+    <title>SyC - A Compiler for SysY</title>
     <meta charset="utf-8">
     <script src="https://cdn.bootcdn.net/ajax/libs/vue/2.6.12/vue.min.js"></script>
     <script src="https://cdn.bootcdn.net/ajax/libs/element-ui/2.15.0/index.min.js"></script>
@@ -34,16 +34,15 @@
         <el-container>
             <el-header height="auto" style="text-align:center">
                 <h1>SyC Live Demo</h1>
-                <el-switch style="display: inline" v-model="optimization" active-text="Optimization">
+                <el-switch v-model="optimization" active-text="Optimization">
                 </el-switch>
                 <el-button @click="compile" :disabled="!!status">{{status||'compile'}}</el-button>
             </el-header>
             <el-main>
-                <div style="display:flex;width:100%;max-height:100%;">
-                    <el-input type="textarea" :autosize="{ minRows: 10 }" placeholder="Code"
-                        style="flex-grow:1;max-height:100%;" v-model="code">
+                <div style="display:flex;max-height:100%;">
+                    <el-input type="textarea" placeholder="Code" resize="none" style="flex-grow:1" v-model="code">
                     </el-input>
-                    <el-divider direction="vertical" style="height:inherit"></el-divider>
+                    <el-divider direction="vertical"></el-divider>
                     <div style="flex-grow:1;width:100%;overflow:auto;">
                         <el-collapse v-model="activeNames">
                             <el-collapse-item title="AST" name="1">
@@ -53,7 +52,14 @@
                                 <div style="white-space:break-spaces;font-family:consolas;">{{ir}}</div>
                             </el-collapse-item>
                             <el-collapse-item title="Assembly" name="3">
-                                <div style="white-space:break-spaces;font-family:consolas;">{{assembly}}</div>
+                                <template slot="title">
+                                    Assembly
+                                    <el-checkbox style="padding-left:1em;" size="mini" v-model="showComment">
+                                        Show comment
+                                    </el-checkbox>
+                                </template>
+                                <div style="white-space:break-spaces;font-family:consolas;"
+                                    v-text="showComment ? assembly : assemblyWithoutComment"></div>
                             </el-collapse-item>
                         </el-collapse>
                     </div>
@@ -145,10 +151,16 @@ int main(){
 }
 `,
                 assembly: '',
+                showComment: false,
                 ast: [{ label: '...' }],
                 cur: null,
                 curLevel: 1,
                 ir: '',
+            },
+            computed: {
+                assemblyWithoutComment() {
+                    return this.assembly.replace(/^#[^\n]*\n?/msg, '');
+                }
             },
             methods: {
                 compile() {
@@ -159,7 +171,7 @@ int main(){
                     this.curLevel = 1;
                     const filename = 'input' + Math.random();
                     Module.FS.createDataFile('/', filename, this.code, 1, 1, 1);
-                    args = ['/' + filename, '-print_ast', '-print_ir'];
+                    args = ['/' + filename, '-print_ast', '-print_ir', '-print_log'];
                     if (this.optimization) args.push('-O2');
                     else args.push('-O0');
                     Module.callMain(args);

@@ -136,21 +136,6 @@ void NIfElseStatement::print(int indentation, bool end, std::ostream& out) {
   elsestmt.print(indentation + 2, true, out);
 }
 
-NIfStatement::NIfStatement(NConditionExpression& cond, NStatement& thenstmt)
-    : cond(cond), thenstmt(thenstmt) {}
-void NIfStatement::print(int indentation, bool end, std::ostream& out) {
-  this->printIndentation(indentation, end, out);
-  out << "IfStatement" << std::endl;
-
-  this->printIndentation(indentation + 1, false, out);
-  out << "Cond" << std::endl;
-  cond.print(indentation + 2, false, out);
-
-  this->printIndentation(indentation + 1, false, out);
-  out << "Then" << std::endl;
-  thenstmt.print(indentation + 2, false, out);
-}
-
 NWhileStatement::NWhileStatement(NConditionExpression& cond, NStatement& dostmt)
     : cond(cond), dostmt(dostmt) {}
 void NWhileStatement::print(int indentation, bool end, std::ostream& out) {

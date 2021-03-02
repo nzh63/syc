@@ -567,78 +567,20 @@ void NWhileStatement::generate_ir(ContextIR& ctx, IRList& ir) {
   ctx.end_scope();
 }
 
-void NIfStatement::generate_ir(ContextIR& ctx, IRList& ir) {
-  ctx.create_scope();
-
-  auto id = std::to_string(ctx.get_id());
-
-  auto cond = this->cond.eval_cond_runntime(ctx, ir);
-
-  ir.emplace_back(cond.else_op, "IF_" + id + "_ELSE");
-
-  IRList ir_then, ir_else;
-  ContextIR ctx_then = ctx, ctx_else = ctx;
-
-  ctx_then.create_scope();
-  this->thenstmt.generate_ir(ctx_then, ir_then);
-  ctx_then.end_scope();
-
-  ctx_else.id = ctx_then.id;
-  ctx_else.create_scope();
-  // this->elsestmt.generate_ir(ctx_else, ir_else);
-  ctx_else.end_scope();
-
-  ctx.id = ctx_else.id;
-
-  IRList end;
-  end.emplace_back(IR::OpCode::LABEL, "IF_" + id + "_END");
-
-  for (int i = 0; i < ctx_then.symbol_table.size(); i++) {
-    for (auto& s : ctx_then.symbol_table[i]) {
-      if (s.second.name !=
-          ctx_else.symbol_table[i].find(s.first)->second.name) {
-        auto& v = ctx.find_symbol(s.first);
-        assert(!v.is_array);
-        if (v.name[0] == '%') v.name = "%" + std::to_string(ctx.get_id());
-        ir_then.emplace_back(IR::OpCode::PHI_MOV, v.name,
-                             OpName(s.second.name));
-        ir_then.back().phi_block = end.begin();
-        ir_else.emplace_back(
-            IR::OpCode::PHI_MOV, v.name,
-            OpName(ctx_else.symbol_table[i].find(s.first)->second.name));
-        ir_else.back().phi_block = end.begin();
-      }
-    }
-  }
-
-  ir.splice(ir.end(), ir_then);
-  if (!ir_else.empty()) ir.emplace_back(IR::OpCode::JMP, "IF_" + id + "_END");
-  ir.emplace_back(IR::OpCode::LABEL, "IF_" + id + "_ELSE");
-  ir.splice(ir.end(), ir_else);
-  ir.splice(ir.end(), end);
-
-  if (!ctx.loop_break_symbol_snapshot.empty()) {
-    auto& br = ctx.loop_break_symbol_snapshot.top();
-    auto& then_br = ctx_then.loop_break_symbol_snapshot.top();
-    auto& else_br = ctx_else.loop_break_symbol_snapshot.top();
-    br.insert(br.end(), then_br.begin(), then_br.end());
-    br.insert(br.end(), else_br.begin(), else_br.end());
-    auto& co = ctx.loop_continue_symbol_snapshot.top();
-    auto& then_co = ctx_then.loop_continue_symbol_snapshot.top();
-    auto& else_co = ctx_else.loop_continue_symbol_snapshot.top();
-    co.insert(co.end(), then_co.begin(), then_co.end());
-    co.insert(co.end(), else_co.begin(), else_co.end());
-  }
-
-  ctx.end_scope();
-}
-
 void NIfElseStatement::generate_ir(ContextIR& ctx, IRList& ir) {
   ctx.create_scope();
 
   auto id = std::to_string(ctx.get_id());
 
   auto cond = this->cond.eval_cond_runntime(ctx, ir);
+  if (cond.then_op == IR::OpCode::JMP) {
+    this->thenstmt.generate_ir(ctx, ir);
+    return;
+  }
+  if (cond.else_op == IR::OpCode::JMP) {
+    this->elsestmt.generate_ir(ctx, ir);
+    return;
+  }
 
   ir.emplace_back(cond.else_op, "IF_" + id + "_ELSE");
 

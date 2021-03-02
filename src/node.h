@@ -178,16 +178,6 @@ class NIfElseStatement : public NStatement {
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
 };
 
-class NIfStatement : public NStatement {
- public:
-  NConditionExpression& cond;
-  NStatement& thenstmt;
-  NIfStatement(NConditionExpression& cond, NStatement& thenstmt);
-  virtual void print(int indentation = 0, bool end = false,
-                     std::ostream& out = std::cerr);
-  virtual void generate_ir(ContextIR& ctx, IRList& ir);
-};
-
 class NWhileStatement : public NStatement {
  public:
   NConditionExpression& cond;

@@ -279,7 +279,7 @@ AssignStmtWithoutSemi: LVal ASSIGN AddExp { $$ = new NAssignment(*$1, *$3); }
                      | LVal MINUSMINUS { $$ = new NAfterInc(*$1, MINUS); }
                      ;
 
-IfStmt: IF LPAREN Cond RPAREN Stmt { $$ = new NIfStatement(*$3, *$5); }
+IfStmt: IF LPAREN Cond RPAREN Stmt { $$ = new NIfElseStatement(*$3, *$5, *new NVoidStatement()); }
       | IF LPAREN Cond RPAREN Stmt ELSE Stmt { $$ = new NIfElseStatement(*$3, *$5, *$7); }
       ;
 
