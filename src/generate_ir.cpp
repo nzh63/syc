@@ -529,7 +529,8 @@ void NWhileStatement::generate_ir(ContextIR& ctx, IRList& ir) {
 
   /////////////////////////////////////////////////////////
 
-  optimize_loop_ir(ir_before, ir_cond, ir_jmp, ir_do, ir_continue);
+  if (config::optimize_level > 0)
+    optimize_loop_ir(ir_before, ir_cond, ir_jmp, ir_do, ir_continue);
 
   /////////////////////////////////////////////////////////
 
