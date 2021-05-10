@@ -1,0 +1,42 @@
+name: CMake
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v2.1.5
+      with:
+        node-version: 14.x
+    
+    - name: Install dependant
+      run: |
+        sudo apt update
+        sudo apt install -y flex bison gcc g++ gcc-arm-linux-gnueabihf qemu-user qemu-user-static
+
+    - name: Configure CMake
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      run: cmake --build ${{github.workspace}}/build --target test
+    
+    - name: Test Performance
+      working-directory: ${{github.workspace}}/build
+      run: cmake --build ${{github.workspace}}/build --target test_performance 
+      
