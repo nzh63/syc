@@ -45,7 +45,7 @@
                                     }
 [ ]                                 ;
 \n                                  yylineno++;
-\t                                  ;
+[\t\r]                              ;
 "if"                                return TOKEN(IF);
 "else"                              return TOKEN(ELSE);
 "while"                             return TOKEN(WHILE);
