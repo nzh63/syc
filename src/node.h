@@ -45,7 +45,7 @@ class NExpression : public Node {
     IR::OpCode then_op;
     IR::OpCode else_op;
   };
-  virtual CondResult eval_cond_runntime(ContextIR& ctx, IRList& ir);
+  virtual CondResult eval_cond_runtime(ContextIR& ctx, IRList& ir);
 };
 
 class NStatement : public NExpression {
@@ -84,7 +84,7 @@ class NBinaryExpression : public NExpression {
                      std::ostream& out = std::cerr);
   virtual int eval(ContextIR& ctx);
   virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
-  virtual CondResult eval_cond_runntime(ContextIR& ctx, IRList& ir);
+  virtual CondResult eval_cond_runtime(ContextIR& ctx, IRList& ir);
 };
 
 class NUnaryExpression : public NExpression {
@@ -278,7 +278,7 @@ class NArrayIdentifier : public NIdentifier {
                      std::ostream& out = std::cerr);
   virtual int eval(ContextIR& ctx);
   virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
-  void store_runntime(OpName value, ContextIR& ctx, IRList& ir);
+  void store_runtime(OpName value, ContextIR& ctx, IRList& ir);
 };
 
 class NArrayDeclareWithInit : public NDeclare {

@@ -313,7 +313,7 @@ void NWhileStatement::generate_ir(ContextIR& ctx, IRList& ir) {
   IRList ir_cond;
   ir_cond.emplace_back(IR::OpCode::LABEL,
                        "LOOP_" + ctx.loop_label.top() + "_BEGIN");
-  auto cond = this->cond.eval_cond_runntime(ctx_cond, ir_cond);
+  auto cond = this->cond.eval_cond_runtime(ctx_cond, ir_cond);
 
   // JMP
   IRList ir_jmp;
@@ -427,7 +427,7 @@ void NWhileStatement::generate_ir(ContextIR& ctx, IRList& ir) {
 
   // COND real
   ctx_cond = ctx_before;
-  cond = this->cond.eval_cond_runntime(ctx_cond, ir_cond);
+  cond = this->cond.eval_cond_runtime(ctx_cond, ir_cond);
 
   // JMP real
   ir_jmp.clear();
@@ -573,7 +573,7 @@ void NIfElseStatement::generate_ir(ContextIR& ctx, IRList& ir) {
 
   auto id = std::to_string(ctx.get_id());
 
-  auto cond = this->cond.eval_cond_runntime(ctx, ir);
+  auto cond = this->cond.eval_cond_runtime(ctx, ir);
   if (cond.then_op == IR::OpCode::JMP) {
     this->thenstmt.generate_ir(ctx, ir);
     return;
@@ -645,7 +645,7 @@ void NIfElseStatement::generate_ir(ContextIR& ctx, IRList& ir) {
 void NAssignment::generate_ir(ContextIR& ctx, IRList& ir) {
   if (dynamic_cast<NArrayIdentifier*>(&this->lhs)) {
     auto rhs = this->rhs.eval_runtime(ctx, ir);
-    dynamic_cast<NArrayIdentifier*>(&this->lhs)->store_runntime(rhs, ctx, ir);
+    dynamic_cast<NArrayIdentifier*>(&this->lhs)->store_runtime(rhs, ctx, ir);
   } else {
     auto rhs = this->rhs.eval_runtime(ctx, ir);
     auto& v = ctx.find_symbol(this->lhs.name);
@@ -694,8 +694,7 @@ void NAfterInc::generate_ir(ContextIR& ctx, IRList& ir) {
   delete n0;
 }
 
-void NArrayIdentifier::store_runntime(OpName value, ContextIR& ctx,
-                                      IRList& ir) {
+void NArrayIdentifier::store_runtime(OpName value, ContextIR& ctx, IRList& ir) {
   auto v = ctx.find_symbol(this->name.name);
   if (v.is_array) {
     if (this->shape.size() == v.shape.size()) {

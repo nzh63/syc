@@ -372,7 +372,7 @@ OpName NBinaryExpression::eval_runtime(ContextIR& ctx, IRList& ir) {
       IRList end;
       end.emplace_back(IR::OpCode::LABEL, label);
 
-      auto lhs = this->lhs.eval_cond_runntime(ctx, ir);
+      auto lhs = this->lhs.eval_cond_runtime(ctx, ir);
       ir.emplace_back(IR::OpCode::PHI_MOV, dest, OpName(0));
       ir.back().phi_block = end.begin();
       ir.emplace_back(lhs.else_op, label);
@@ -389,7 +389,7 @@ OpName NBinaryExpression::eval_runtime(ContextIR& ctx, IRList& ir) {
       IRList end;
       end.emplace_back(IR::OpCode::LABEL, label);
 
-      auto lhs = this->lhs.eval_cond_runntime(ctx, ir);
+      auto lhs = this->lhs.eval_cond_runtime(ctx, ir);
       ir.emplace_back(IR::OpCode::PHI_MOV, dest, OpName(1));
       ir.back().phi_block = end.begin();
       ir.emplace_back(lhs.then_op, label);
@@ -491,8 +491,8 @@ OpName NEvalStatement::eval_runtime(ContextIR& ctx, IRList& ir) {
   return this->value.eval_runtime(ctx, ir);
 }
 
-NExpression::CondResult NExpression::eval_cond_runntime(ContextIR& ctx,
-                                                        IRList& ir) {
+NExpression::CondResult NExpression::eval_cond_runtime(ContextIR& ctx,
+                                                       IRList& ir) {
   CondResult ret;
   OpName dest = "%" + std::to_string(ctx.get_id());
   ir.emplace_back(IR::OpCode::CMP, dest, this->eval_runtime(ctx, ir),
@@ -502,8 +502,8 @@ NExpression::CondResult NExpression::eval_cond_runntime(ContextIR& ctx,
   return ret;
 }
 
-NExpression::CondResult NBinaryExpression::eval_cond_runntime(ContextIR& ctx,
-                                                              IRList& ir) {
+NExpression::CondResult NBinaryExpression::eval_cond_runtime(ContextIR& ctx,
+                                                             IRList& ir) {
   if (config::optimize_level > 0) {
     try {
       if (this->eval(ctx)) {
