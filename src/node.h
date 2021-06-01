@@ -27,20 +27,21 @@
 
 using INTEGER = std::int32_t;
 
-class Node {
+namespace SYC::Node {
+class BaseNode {
  public:
-  virtual ~Node();
+  virtual ~BaseNode();
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  void printIndentation(int indentation = 0, bool end = false,
-                        std::ostream& out = std::cerr);
+  void print_indentation(int indentation = 0, bool end = false,
+                         std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
 };
 
-class NExpression : public Node {
+class Expression : public BaseNode {
  public:
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
+  virtual IR::OpName eval_runtime(ContextIR& ctx, IRList& ir);
   struct CondResult {
     IR::OpCode then_op;
     IR::OpCode else_op;
@@ -48,293 +49,294 @@ class NExpression : public Node {
   virtual CondResult eval_cond_runtime(ContextIR& ctx, IRList& ir);
 };
 
-class NStatement : public NExpression {
-  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
+class Statement : public Expression {
+  virtual IR::OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
-class NDeclare : public Node {};
+class Declare : public BaseNode {};
 
-class NIdentifier : public NExpression {
+class Identifier : public Expression {
  public:
   std::string name;
-  NIdentifier(const std::string& name);
+  Identifier(const std::string& name);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
+  virtual IR::OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
-class NConditionExpression : public NExpression {
+class ConditionExpression : public Expression {
  public:
-  NExpression& value;
-  NConditionExpression(NExpression& value);
+  Expression& value;
+  ConditionExpression(Expression& value);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
+  virtual IR::OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
-class NBinaryExpression : public NExpression {
+class BinaryExpression : public Expression {
  public:
   int op;
-  NExpression& lhs;
-  NExpression& rhs;
-  NBinaryExpression(NExpression& lhs, int op, NExpression& rhs);
+  Expression& lhs;
+  Expression& rhs;
+  BinaryExpression(Expression& lhs, int op, Expression& rhs);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
+  virtual IR::OpName eval_runtime(ContextIR& ctx, IRList& ir);
   virtual CondResult eval_cond_runtime(ContextIR& ctx, IRList& ir);
 };
 
-class NUnaryExpression : public NExpression {
+class UnaryExpression : public Expression {
  public:
   int op;
-  NExpression& rhs;
-  NUnaryExpression(int op, NExpression& rhs);
+  Expression& rhs;
+  UnaryExpression(int op, Expression& rhs);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
+  virtual IR::OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
-class NCommaExpression : public NExpression {
+class CommaExpression : public Expression {
  public:
-  std::vector<NExpression*> values;
-  NCommaExpression() = default;
+  std::vector<Expression*> values;
+  CommaExpression() = default;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
+  virtual IR::OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
-class NFunctionCallArgList : public NExpression {
+class FunctionCallArgList : public Expression {
  public:
-  std::vector<NExpression*> args;
+  std::vector<Expression*> args;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 };
 
-class NFunctionCall : public NExpression {
+class FunctionCall : public Expression {
  public:
-  NIdentifier& name;
-  NFunctionCallArgList& args;
-  NFunctionCall(NIdentifier& name, NFunctionCallArgList& args);
+  Identifier& name;
+  FunctionCallArgList& args;
+  FunctionCall(Identifier& name, FunctionCallArgList& args);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
+  virtual IR::OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
-class NNumber : public NExpression {
+class Number : public Expression {
  public:
   INTEGER value;
-  NNumber(const std::string& value);
-  NNumber(INTEGER value);
+  Number(const std::string& value);
+  Number(INTEGER value);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
+  virtual IR::OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
-class NBlock : public NStatement {
+class Block : public Statement {
  public:
-  std::vector<NStatement*> statements;
+  std::vector<Statement*> statements;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
 };
 
-class NAssignment : public NStatement {
+class Assignment : public Statement {
  public:
-  NIdentifier& lhs;
-  NExpression& rhs;
-  NAssignment(NIdentifier& lhs, NExpression& rhs);
+  Identifier& lhs;
+  Expression& rhs;
+  Assignment(Identifier& lhs, Expression& rhs);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
+  virtual IR::OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
-class NAfterInc : public NStatement {
+class AfterInc : public Statement {
  public:
   int op;
-  NIdentifier& lhs;
-  NAfterInc(NIdentifier& lhs, int op);
+  Identifier& lhs;
+  AfterInc(Identifier& lhs, int op);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
+  virtual IR::OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
-class NIfElseStatement : public NStatement {
+class IfElseStatement : public Statement {
  public:
-  NConditionExpression& cond;
-  NStatement& thenstmt;
-  NStatement& elsestmt;
-  NIfElseStatement(NConditionExpression& cond, NStatement& thenstmt,
-                   NStatement& elsestmt);
+  ConditionExpression& cond;
+  Statement& thenstmt;
+  Statement& elsestmt;
+  IfElseStatement(ConditionExpression& cond, Statement& thenstmt,
+                  Statement& elsestmt);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
 };
 
-class NWhileStatement : public NStatement {
+class WhileStatement : public Statement {
  public:
-  NConditionExpression& cond;
-  NStatement& dostmt;
-  NWhileStatement(NConditionExpression& cond, NStatement& dostmt);
+  ConditionExpression& cond;
+  Statement& dostmt;
+  WhileStatement(ConditionExpression& cond, Statement& dostmt);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
 };
 
-class NBreakStatement : public NStatement {
+class BreakStatement : public Statement {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
 };
 
-class NContinueStatement : public NStatement {
+class ContinueStatement : public Statement {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
 };
 
-class NReturnStatement : public NStatement {
+class ReturnStatement : public Statement {
  public:
-  NExpression* value;
-  NReturnStatement(NExpression* value = NULL);
+  Expression* value;
+  ReturnStatement(Expression* value = NULL);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
 };
 
-class NEvalStatement : public NStatement {
+class EvalStatement : public Statement {
  public:
-  NExpression& value;
-  NEvalStatement(NExpression& value);
+  Expression& value;
+  EvalStatement(Expression& value);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
+  virtual IR::OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
-class NVoidStatement : public NStatement {
+class VoidStatement : public Statement {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
 };
 
-class NDeclareStatement : public NStatement {
+class DeclareStatement : public Statement {
  public:
-  std::vector<NDeclare*> list;
+  std::vector<Declare*> list;
   int type;
-  NDeclareStatement(int type);
+  DeclareStatement(int type);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
 };
 
-class NArrayDeclareInitValue : public NExpression {
+class ArrayDeclareInitValue : public Expression {
  public:
   bool is_number;
-  NExpression* value;
-  std::vector<NArrayDeclareInitValue*> value_list;
-  NArrayDeclareInitValue(bool is_number, NExpression* value);
+  Expression* value;
+  std::vector<ArrayDeclareInitValue*> value_list;
+  ArrayDeclareInitValue(bool is_number, Expression* value);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 };
 
-class NVarDeclareWithInit : public NDeclare {
+class VarDeclareWithInit : public Declare {
  public:
-  NIdentifier& name;
-  NExpression& value;
+  Identifier& name;
+  Expression& value;
   bool is_const;
-  NVarDeclareWithInit(NIdentifier& name, NExpression& value,
-                      bool is_const = false);
+  VarDeclareWithInit(Identifier& name, Expression& value,
+                     bool is_const = false);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
 };
 
-class NVarDeclare : public NDeclare {
+class VarDeclare : public Declare {
  public:
-  NIdentifier& name;
-  NVarDeclare(NIdentifier& name);
+  Identifier& name;
+  VarDeclare(Identifier& name);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
 };
 
-class NArrayIdentifier : public NIdentifier {
+class ArrayIdentifier : public Identifier {
  public:
-  NIdentifier& name;
-  std::vector<NExpression*> shape;
-  NArrayIdentifier(NIdentifier& name);
+  Identifier& name;
+  std::vector<Expression*> shape;
+  ArrayIdentifier(Identifier& name);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
-  void store_runtime(OpName value, ContextIR& ctx, IRList& ir);
+  virtual IR::OpName eval_runtime(ContextIR& ctx, IRList& ir);
+  void store_runtime(IR::OpName value, ContextIR& ctx, IRList& ir);
 };
 
-class NArrayDeclareWithInit : public NDeclare {
+class ArrayDeclareWithInit : public Declare {
  public:
-  NArrayIdentifier& name;
-  NArrayDeclareInitValue& value;
+  ArrayIdentifier& name;
+  ArrayDeclareInitValue& value;
   bool is_const;
-  NArrayDeclareWithInit(NArrayIdentifier& name, NArrayDeclareInitValue& value,
-                        bool is_const = false);
+  ArrayDeclareWithInit(ArrayIdentifier& name, ArrayDeclareInitValue& value,
+                       bool is_const = false);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
 };
 
-class NArrayDeclare : public NDeclare {
+class ArrayDeclare : public Declare {
  public:
-  NArrayIdentifier& name;
-  NArrayDeclare(NArrayIdentifier& name);
+  ArrayIdentifier& name;
+  ArrayDeclare(ArrayIdentifier& name);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
 };
 
-class NFunctionDefineArg : public NExpression {
+class FunctionDefineArg : public Expression {
  public:
   int type;
-  NIdentifier& name;
-  NFunctionDefineArg(int type, NIdentifier& name);
+  Identifier& name;
+  FunctionDefineArg(int type, Identifier& name);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 };
 
-class NFunctionDefineArgList : public NExpression {
+class FunctionDefineArgList : public Expression {
  public:
-  std::vector<NFunctionDefineArg*> list;
+  std::vector<FunctionDefineArg*> list;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 };
 
-class NFunctionDefine : public Node {
+class FunctionDefine : public BaseNode {
  public:
   int return_type;
-  NIdentifier& name;
-  NFunctionDefineArgList& args;
-  NBlock& body;
-  NFunctionDefine(int return_type, NIdentifier& name,
-                  NFunctionDefineArgList& args, NBlock& body);
+  Identifier& name;
+  FunctionDefineArgList& args;
+  Block& body;
+  FunctionDefine(int return_type, Identifier& name, FunctionDefineArgList& args,
+                 Block& body);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
 };
 
-class NRoot : public Node {
+class Root : public BaseNode {
  public:
-  std::vector<Node*> body;
+  std::vector<BaseNode*> body;
   virtual void print(int indentation = 0, bool end = true,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
 };
+}  // namespace SYC::Node

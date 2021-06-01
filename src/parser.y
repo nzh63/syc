@@ -19,7 +19,7 @@
 #include "node.h"
 #include <cstdio>
 #include <cstdlib>
-NRoot *root; /* the top level root node of our final AST */
+extern SYC::Node::Root *root; /* the top level root node of our final AST */
 extern int yydebug;
 
 extern int yylex();
@@ -32,22 +32,22 @@ void yyerror(const char *s) { std::printf("Error(line: %d): %s\n", yyget_lineno(
 
 %union {
     int token;
-    NIdentifier* ident;
-    NExpression* expr;
-    NRoot* root;
-    NDeclareStatement* declare_statement;
-    NFunctionDefine* fundef;
-    NDeclare* declare;
-    NArrayDeclareInitValue* array_init_value;
-    NArrayIdentifier* array_identifier;
-    NFunctionCallArgList* arg_list;
-    NFunctionDefineArgList* fundefarglist;
-    NFunctionDefineArg* fundefarg;
-    NBlock* block;
-    NStatement* stmt;
-    NAssignment* assignmentstmt;
-    NIfElseStatement* ifelsestmt;
-    NConditionExpression* condexp;
+    SYC::Node::Identifier* ident;
+    SYC::Node::Expression* expr;
+    SYC::Node::Root* root;
+    SYC::Node::DeclareStatement* declare_statement;
+    SYC::Node::FunctionDefine* fundef;
+    SYC::Node::Declare* declare;
+    SYC::Node::ArrayDeclareInitValue* array_init_value;
+    SYC::Node::ArrayIdentifier* array_identifier;
+    SYC::Node::FunctionCallArgList* arg_list;
+    SYC::Node::FunctionDefineArgList* fundefarglist;
+    SYC::Node::FunctionDefineArg* fundefarg;
+    SYC::Node::Block* block;
+    SYC::Node::Statement* stmt;
+    SYC::Node::Assignment* assignmentstmt;
+    SYC::Node::IfElseStatement* ifelsestmt;
+    SYC::Node::ConditionExpression* condexp;
     std::string *string;
 }
 
@@ -83,8 +83,8 @@ void yyerror(const char *s) { std::printf("Error(line: %d): %s\n", yyget_lineno(
 
 CompUnit: CompUnit Decl { $$->body.push_back($<declare>2); }
         | CompUnit FuncDef { $$->body.push_back($<fundef>2); }
-        | Decl { root = new NRoot(); $$ = root; $$->body.push_back($<declare>1); }
-        | FuncDef { root = new NRoot(); $$ = root; $$->body.push_back($<fundef>1); }
+        | Decl { root = new SYC::Node::Root(); $$ = root; $$->body.push_back($<declare>1); }
+        | FuncDef { root = new SYC::Node::Root(); $$ = root; $$->body.push_back($<fundef>1); }
         ;
 
 Decl: ConstDeclStmt
@@ -95,13 +95,13 @@ BType: INT;
 
 ConstDeclStmt: ConstDecl SEMI { $$ = $1; };
 
-ConstDecl: CONST BType ConstDef { $$ = new NDeclareStatement($2); $$->list.push_back($3); }
+ConstDecl: CONST BType ConstDef { $$ = new SYC::Node::DeclareStatement($2); $$->list.push_back($3); }
          | ConstDecl COMMA ConstDef { $$->list.push_back($3); }
          ;
 
 VarDeclStmt: VarDecl SEMI { $$ = $1; };
 
-VarDecl: BType Def { $$ = new NDeclareStatement($1); $$->list.push_back($2); }
+VarDecl: BType Def { $$ = new SYC::Node::DeclareStatement($1); $$->list.push_back($2); }
        | VarDecl COMMA Def { $$->list.push_back($3); }
        ;
 
@@ -109,42 +109,42 @@ Def: DefOne
    | DefArray
    ;
 
-DefOne: ident ASSIGN InitVal { $$ = new NVarDeclareWithInit(*$1, *$3); }
-      | ident { $$ = new NVarDeclare(*$1); }
+DefOne: ident ASSIGN InitVal { $$ = new SYC::Node::VarDeclareWithInit(*$1, *$3); }
+      | ident { $$ = new SYC::Node::VarDeclare(*$1); }
       ;
 
-DefArray: DefArrayName ASSIGN InitValArray { $$ = new NArrayDeclareWithInit(*$1, *$3); }
-        | DefArrayName { $$ = new NArrayDeclare(*$1); }
+DefArray: DefArrayName ASSIGN InitValArray { $$ = new SYC::Node::ArrayDeclareWithInit(*$1, *$3); }
+        | DefArrayName { $$ = new SYC::Node::ArrayDeclare(*$1); }
         ;
 
 ConstDef: ConstDefOne
         | ConstDefArray
         ;
 
-ConstDefOne: ident ASSIGN InitVal { $$ = new NVarDeclareWithInit(*$1, *$3, true); }
+ConstDefOne: ident ASSIGN InitVal { $$ = new SYC::Node::VarDeclareWithInit(*$1, *$3, true); }
            ;
 
-ConstDefArray: DefArrayName ASSIGN InitValArray { $$ = new NArrayDeclareWithInit(*$1, *$3, true); }
+ConstDefArray: DefArrayName ASSIGN InitValArray { $$ = new SYC::Node::ArrayDeclareWithInit(*$1, *$3, true); }
              ;
 
 DefArrayName: DefArrayName LSQUARE Exp RSQUARE { $$ = $1; $$->shape.push_back($3); }
-            | ident LSQUARE Exp RSQUARE { $$ = new NArrayIdentifier(*$1); $$->shape.push_back($3); }
+            | ident LSQUARE Exp RSQUARE { $$ = new SYC::Node::ArrayIdentifier(*$1); $$->shape.push_back($3); }
             ;
 
 InitVal: AddExp;
 
 InitValArray: LBRACE InitValArrayInner RBRACE { $$ = $2; }
-            | LBRACE RBRACE { $$ = new NArrayDeclareInitValue(false, nullptr); }
+            | LBRACE RBRACE { $$ = new SYC::Node::ArrayDeclareInitValue(false, nullptr); }
             ;
 
 InitValArrayInner: InitValArrayInner COMMA InitValArray { $$ = $1; $$->value_list.push_back($3); }
-                 | InitValArrayInner COMMA InitVal { $$ = $1; $$->value_list.push_back(new NArrayDeclareInitValue(true, $3)); }
-                 | InitValArray { $$ = new NArrayDeclareInitValue(false, nullptr); $$->value_list.push_back($1); }
-                 | InitVal { $$ = new NArrayDeclareInitValue(false, nullptr); $$->value_list.push_back(new NArrayDeclareInitValue(true, $1)); }
+                 | InitValArrayInner COMMA InitVal { $$ = $1; $$->value_list.push_back(new SYC::Node::ArrayDeclareInitValue(true, $3)); }
+                 | InitValArray { $$ = new SYC::Node::ArrayDeclareInitValue(false, nullptr); $$->value_list.push_back($1); }
+                 | InitVal { $$ = new SYC::Node::ArrayDeclareInitValue(false, nullptr); $$->value_list.push_back(new SYC::Node::ArrayDeclareInitValue(true, $1)); }
                  | CommaExpr {
-                       $$ = new NArrayDeclareInitValue(false, nullptr);
-                       for (auto i : dynamic_cast<NCommaExpression*>($1)->values) {
-                             $$->value_list.push_back(new NArrayDeclareInitValue(true, i));
+                       $$ = new SYC::Node::ArrayDeclareInitValue(false, nullptr);
+                       for (auto i : dynamic_cast<SYC::Node::CommaExpression*>($1)->values) {
+                             $$->value_list.push_back(new SYC::Node::ArrayDeclareInitValue(true, i));
                        }
                        delete $1;
                  }
@@ -155,50 +155,50 @@ Exp: AddExp
    ;
 
 CommaExpr: AddExp COMMA AddExp {
-               auto n = new NCommaExpression();
+               auto n = new SYC::Node::CommaExpression();
                n->values.push_back($1);
                n->values.push_back($3);
                $$ = n;
             }
          | CommaExpr COMMA AddExp {
-               dynamic_cast<NCommaExpression*>($1)->values.push_back($3);
+               dynamic_cast<SYC::Node::CommaExpression*>($1)->values.push_back($3);
                $$ = $1;
             }
          ;
 
-LOrExp: LAndExp OR LAndExp { $$ = new NBinaryExpression(*$1, $2, *$3); }
-      | LOrExp OR LAndExp { $$ = new NBinaryExpression(*$1, $2, *$3); }
+LOrExp: LAndExp OR LAndExp { $$ = new SYC::Node::BinaryExpression(*$1, $2, *$3); }
+      | LOrExp OR LAndExp { $$ = new SYC::Node::BinaryExpression(*$1, $2, *$3); }
       | LAndExp
       ;
 
-LAndExp: LAndExp AND EqExp  { $$ = new NBinaryExpression(*$1, $2, *$3); }
+LAndExp: LAndExp AND EqExp  { $$ = new SYC::Node::BinaryExpression(*$1, $2, *$3); }
        | EqExp
        ;
 
-EqExp: RelExp EQ RelExp  { $$ = new NBinaryExpression(*$1, $2, *$3); }
-     | RelExp NE RelExp  { $$ = new NBinaryExpression(*$1, $2, *$3); }
+EqExp: RelExp EQ RelExp  { $$ = new SYC::Node::BinaryExpression(*$1, $2, *$3); }
+     | RelExp NE RelExp  { $$ = new SYC::Node::BinaryExpression(*$1, $2, *$3); }
      | RelExp
      ;
 
 RelExp: AddExp
-      | RelExp RelOp AddExp  { $$ = new NBinaryExpression(*$1, $2, *$3); }
+      | RelExp RelOp AddExp  { $$ = new SYC::Node::BinaryExpression(*$1, $2, *$3); }
       ;
 
-AddExp: AddExp AddOp MulExp  { $$ = new NBinaryExpression(*$1, $2, *$3); }
+AddExp: AddExp AddOp MulExp  { $$ = new SYC::Node::BinaryExpression(*$1, $2, *$3); }
       | MulExp
       ;
 
-MulExp: MulExp MulOp UnaryExp  { $$ = new NBinaryExpression(*$1, $2, *$3); }
+MulExp: MulExp MulOp UnaryExp  { $$ = new SYC::Node::BinaryExpression(*$1, $2, *$3); }
       | UnaryExp
       ;
 
-UnaryExp: UnaryOp UnaryExp  { $$ = new NUnaryExpression($1, *$2); }
+UnaryExp: UnaryOp UnaryExp  { $$ = new SYC::Node::UnaryExpression($1, *$2); }
         | FunctionCall
         | PrimaryExp
         ;
 
-FunctionCall: ident LPAREN FuncRParams RPAREN { $$ = new NFunctionCall(*$1, *$3); };
-            | ident LPAREN RPAREN { $$ = new NFunctionCall(*$1, *(new NFunctionCallArgList())); }
+FunctionCall: ident LPAREN FuncRParams RPAREN { $$ = new SYC::Node::FunctionCall(*$1, *$3); };
+            | ident LPAREN RPAREN { $$ = new SYC::Node::FunctionCall(*$1, *(new SYC::Node::FunctionCallArgList())); }
             ;
 
 PrimaryExp: LVal
@@ -207,7 +207,7 @@ PrimaryExp: LVal
           | AssignStmtWithoutSemi
           ;
 
-ArrayItem: LVal LSQUARE Exp RSQUARE { $$ = new NArrayIdentifier(*$1); $$->shape.push_back($3);}
+ArrayItem: LVal LSQUARE Exp RSQUARE { $$ = new SYC::Node::ArrayIdentifier(*$1); $$->shape.push_back($3);}
          | ArrayItem LSQUARE Exp RSQUARE { $$ = $1; $$->shape.push_back($3);}
          ;
 
@@ -215,15 +215,15 @@ LVal: ArrayItem
     | ident
     ;
 
-FuncDef: BType ident LPAREN FuncFParams RPAREN Block { $$ = new NFunctionDefine($1, *$2, *$4, *$6); }
-       | BType ident LPAREN RPAREN Block { $$ = new NFunctionDefine($1, *$2, *(new NFunctionDefineArgList()), *$5); }
-       | VOID ident LPAREN FuncFParams RPAREN Block { $$ = new NFunctionDefine($1, *$2, *$4, *$6); }
-       | VOID ident LPAREN RPAREN Block { $$ = new NFunctionDefine($1, *$2, *(new NFunctionDefineArgList()), *$5); }
+FuncDef: BType ident LPAREN FuncFParams RPAREN Block { $$ = new SYC::Node::FunctionDefine($1, *$2, *$4, *$6); }
+       | BType ident LPAREN RPAREN Block { $$ = new SYC::Node::FunctionDefine($1, *$2, *(new SYC::Node::FunctionDefineArgList()), *$5); }
+       | VOID ident LPAREN FuncFParams RPAREN Block { $$ = new SYC::Node::FunctionDefine($1, *$2, *$4, *$6); }
+       | VOID ident LPAREN RPAREN Block { $$ = new SYC::Node::FunctionDefine($1, *$2, *(new SYC::Node::FunctionDefineArgList()), *$5); }
        ;
 
 
 FuncFParams: FuncFParams COMMA FuncFParam { $$->list.push_back($3); }
-           | FuncFParam {{ $$ = new NFunctionDefineArgList(); $$->list.push_back($1); }}
+           | FuncFParam {{ $$ = new SYC::Node::FunctionDefineArgList(); $$->list.push_back($1); }}
            ;
 
 FuncFParam: FuncFParamOne
@@ -231,26 +231,26 @@ FuncFParam: FuncFParamOne
           ;
 
 FuncRParams: FuncRParams COMMA AddExp { $$ = $1; $$->args.push_back($3); }
-           | AddExp { $$ = new NFunctionCallArgList(); $$->args.push_back($1); }
+           | AddExp { $$ = new SYC::Node::FunctionCallArgList(); $$->args.push_back($1); }
            ;
 
-FuncFParamOne: BType ident { $$ = new NFunctionDefineArg($1, *$2); };
+FuncFParamOne: BType ident { $$ = new SYC::Node::FunctionDefineArg($1, *$2); };
 
 FuncFParamArray: FuncFParamOne LSQUARE RSQUARE {
-                        $$ = new NFunctionDefineArg(
+                        $$ = new SYC::Node::FunctionDefineArg(
                               $1->type,
-                              *new NArrayIdentifier(*(new NArrayIdentifier($1->name))));
-                        ((NArrayIdentifier*)&($$->name))->shape.push_back(new NNumber(1));
+                              *new SYC::Node::ArrayIdentifier(*(new SYC::Node::ArrayIdentifier($1->name))));
+                        ((SYC::Node::ArrayIdentifier*)&($$->name))->shape.push_back(new SYC::Node::Number(1));
                         delete $1;
                   }
-               | FuncFParamArray LSQUARE Exp RSQUARE { $$ = $1; ((NArrayIdentifier*)&($$->name))->shape.push_back($3);; }
+               | FuncFParamArray LSQUARE Exp RSQUARE { $$ = $1; ((SYC::Node::ArrayIdentifier*)&($$->name))->shape.push_back($3);; }
                ;
 
-Block: LBRACE RBRACE { $$ = new NBlock(); }
+Block: LBRACE RBRACE { $$ = new SYC::Node::Block(); }
      | LBRACE BlockItems RBRACE { $$ = $2; }
      ;
 
-BlockItems: BlockItem { $$ = new NBlock(); $$->statements.push_back($1); }
+BlockItems: BlockItem { $$ = new SYC::Node::Block(); $$->statements.push_back($1); }
           | BlockItems BlockItem { $$ = $1; $$->statements.push_back($2); }
           ;
 
@@ -266,63 +266,63 @@ Stmt: Block
     | ForStmt
     | BreakStmt
     | ContinueStmt
-    | Exp SEMI { $$ = new  NEvalStatement(*$1); }
-    | SEMI { $$ = new NVoidStatement(); }
+    | Exp SEMI { $$ = new  SYC::Node::EvalStatement(*$1); }
+    | SEMI { $$ = new SYC::Node::VoidStatement(); }
     ;
 
 AssignStmt: AssignStmtWithoutSemi SEMI { $$ = $1; }
 
-AssignStmtWithoutSemi: LVal ASSIGN AddExp { $$ = new NAssignment(*$1, *$3); }
-                     | PLUSPLUS LVal { $$ = new NAssignment(*$2, *new NBinaryExpression(*$2, PLUS, *new NNumber(1))); }
-                     | MINUSMINUS LVal { $$ = new NAssignment(*$2, *new NBinaryExpression(*$2, MINUS, *new NNumber(1))); }
-                     | LVal PLUSPLUS { $$ = new NAfterInc(*$1, PLUS); }
-                     | LVal MINUSMINUS { $$ = new NAfterInc(*$1, MINUS); }
+AssignStmtWithoutSemi: LVal ASSIGN AddExp { $$ = new SYC::Node::Assignment(*$1, *$3); }
+                     | PLUSPLUS LVal { $$ = new SYC::Node::Assignment(*$2, *new SYC::Node::BinaryExpression(*$2, PLUS, *new SYC::Node::Number(1))); }
+                     | MINUSMINUS LVal { $$ = new SYC::Node::Assignment(*$2, *new SYC::Node::BinaryExpression(*$2, MINUS, *new SYC::Node::Number(1))); }
+                     | LVal PLUSPLUS { $$ = new SYC::Node::AfterInc(*$1, PLUS); }
+                     | LVal MINUSMINUS { $$ = new SYC::Node::AfterInc(*$1, MINUS); }
                      ;
 
-IfStmt: IF LPAREN Cond RPAREN Stmt { $$ = new NIfElseStatement(*$3, *$5, *new NVoidStatement()); }
-      | IF LPAREN Cond RPAREN Stmt ELSE Stmt { $$ = new NIfElseStatement(*$3, *$5, *$7); }
+IfStmt: IF LPAREN Cond RPAREN Stmt { $$ = new SYC::Node::IfElseStatement(*$3, *$5, *new SYC::Node::VoidStatement()); }
+      | IF LPAREN Cond RPAREN Stmt ELSE Stmt { $$ = new SYC::Node::IfElseStatement(*$3, *$5, *$7); }
       ;
 
-ReturnStmt: RETURN Exp SEMI { $$ = new NReturnStatement($2); }
-          | RETURN SEMI { $$ = new NReturnStatement(); }
+ReturnStmt: RETURN Exp SEMI { $$ = new SYC::Node::ReturnStatement($2); }
+          | RETURN SEMI { $$ = new SYC::Node::ReturnStatement(); }
           ;
 
-WhileStmt: WHILE LPAREN Cond RPAREN Stmt { $$ = new NWhileStatement(*$3, *$5);};
+WhileStmt: WHILE LPAREN Cond RPAREN Stmt { $$ = new SYC::Node::WhileStatement(*$3, *$5);};
 
 ForStmt: FOR LPAREN BlockItem Cond SEMI Exp RPAREN Stmt {
-                  auto b = new NBlock();
-                  auto do_block = new NBlock();
+                  auto b = new SYC::Node::Block();
+                  auto do_block = new SYC::Node::Block();
                   do_block->statements.push_back($8);
-                  do_block->statements.push_back(new NEvalStatement(*$6));
+                  do_block->statements.push_back(new SYC::Node::EvalStatement(*$6));
                   b->statements.push_back($3);
-                  b->statements.push_back(new NWhileStatement(*$4, *do_block));
+                  b->statements.push_back(new SYC::Node::WhileStatement(*$4, *do_block));
                   $$ = b;
             }
        | FOR LPAREN BlockItem Cond SEMI AssignStmtWithoutSemi RPAREN Stmt {
-                  auto b = new NBlock();
-                  auto do_block = new NBlock();
+                  auto b = new SYC::Node::Block();
+                  auto do_block = new SYC::Node::Block();
                   do_block->statements.push_back($8);
                   do_block->statements.push_back($6);
                   b->statements.push_back($3);
-                  b->statements.push_back(new NWhileStatement(*$4, *do_block));
+                  b->statements.push_back(new SYC::Node::WhileStatement(*$4, *do_block));
                   $$ = b;
             }
        | FOR LPAREN BlockItem Cond SEMI RPAREN Stmt {
-                  auto b = new NBlock();
+                  auto b = new SYC::Node::Block();
                   auto do_block = $7;
                   b->statements.push_back($3);
-                  b->statements.push_back(new NWhileStatement(*$4, *do_block));
+                  b->statements.push_back(new SYC::Node::WhileStatement(*$4, *do_block));
                   $$ = b;
             }
        ;
 
-BreakStmt: BREAK SEMI { $$ = new NBreakStatement(); };
+BreakStmt: BREAK SEMI { $$ = new SYC::Node::BreakStatement(); };
 
-ContinueStmt: CONTINUE SEMI { $$ = new NContinueStatement(); };
+ContinueStmt: CONTINUE SEMI { $$ = new SYC::Node::ContinueStatement(); };
 
 Cond: LOrExp;
 
-Number: INTEGER_VALUE { $$ = new NNumber(*$1); };
+Number: INTEGER_VALUE { $$ = new SYC::Node::Number(*$1); };
 
 AddOp: PLUS
      | MINUS
@@ -344,5 +344,5 @@ RelOp: GT
      | LE
      ;
 
-ident: IDENTIFIER { $$ = new NIdentifier(*$1); }
+ident: IDENTIFIER { $$ = new SYC::Node::Identifier(*$1); }
 	 ;

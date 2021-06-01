@@ -27,21 +27,22 @@
 //
 #include "parser.hpp"
 
-void Node::generate_ir(ContextIR& ctx, IRList& ir) {
+namespace SYC {
+void Node::BaseNode::generate_ir(ContextIR& ctx, IRList& ir) {
   this->print();
   throw std::runtime_error("Can't generate IR for this node.");
 }
 
-void NRoot::generate_ir(ContextIR& ctx, IRList& ir) {
+void Node::Root::generate_ir(ContextIR& ctx, IRList& ir) {
   for (auto& i : this->body) {
     i->generate_ir(ctx, ir);
   }
 }
 
-void NVarDeclare::generate_ir(ContextIR& ctx, IRList& ir) {
+void Node::VarDeclare::generate_ir(ContextIR& ctx, IRList& ir) {
   if (ctx.is_global()) {
     ir.emplace_back(IR::OpCode::DATA_BEGIN, "@" + this->name.name);
-    ir.emplace_back(IR::OpCode::DATA_WORD, OpName(0));
+    ir.emplace_back(IR::OpCode::DATA_WORD, IR::OpName(0));
     ir.emplace_back(IR::OpCode::DATA_END);
     ctx.insert_symbol(this->name.name, VarInfo("@" + this->name.name));
   } else {
@@ -50,10 +51,10 @@ void NVarDeclare::generate_ir(ContextIR& ctx, IRList& ir) {
   }
 }
 
-void NVarDeclareWithInit::generate_ir(ContextIR& ctx, IRList& ir) {
+void Node::VarDeclareWithInit::generate_ir(ContextIR& ctx, IRList& ir) {
   if (ctx.is_global()) {
     ir.emplace_back(IR::OpCode::DATA_BEGIN, "@" + this->name.name);
-    ir.emplace_back(IR::OpCode::DATA_WORD, OpName(this->value.eval(ctx)));
+    ir.emplace_back(IR::OpCode::DATA_WORD, IR::OpName(this->value.eval(ctx)));
     ir.emplace_back(IR::OpCode::DATA_END);
     ctx.insert_symbol(this->name.name, VarInfo("@" + this->name.name));
     if (this->is_const) {
@@ -62,14 +63,14 @@ void NVarDeclareWithInit::generate_ir(ContextIR& ctx, IRList& ir) {
   } else {
     ctx.insert_symbol(this->name.name,
                       VarInfo("%" + std::to_string(ctx.get_id())));
-    NAssignment(this->name, this->value).generate_ir(ctx, ir);
+    Node::Assignment(this->name, this->value).generate_ir(ctx, ir);
     if (this->is_const) {
       ctx.insert_const(this->name.name, ConstInfo(this->value.eval(ctx)));
     }
   }
 }
 
-void NArrayDeclare::generate_ir(ContextIR& ctx, IRList& ir) {
+void Node::ArrayDeclare::generate_ir(ContextIR& ctx, IRList& ir) {
   std::vector<int> shape;
   for (auto i : this->name.shape) shape.push_back(i->eval(ctx));
   int size = 1;
@@ -85,17 +86,17 @@ void NArrayDeclare::generate_ir(ContextIR& ctx, IRList& ir) {
         this->name.name.name,
         VarInfo("%&" + std::to_string(ctx.get_id()), true, shape));
     ir.push_back(IR(IR::OpCode::MALLOC_IN_STACK,
-                    OpName(ctx.find_symbol(this->name.name.name).name),
+                    IR::OpName(ctx.find_symbol(this->name.name.name).name),
                     size * 4));
   }
 }
 
 namespace {
-void ArrayDeclareWithInit(NArrayDeclareWithInit& that,
-                          std::vector<NArrayDeclareInitValue*> v,
-                          std::vector<NExpression*> shape,
-                          std::vector<int>& init_value, int index,
-                          ContextIR& ctx, IRList& ir) {
+void _ArrayDeclareWithInit(Node::ArrayDeclareWithInit& that,
+                           std::vector<Node::ArrayDeclareInitValue*> v,
+                           std::vector<Node::Expression*> shape,
+                           std::vector<int>& init_value, int index,
+                           ContextIR& ctx, IRList& ir) {
   const auto output_const = [&](int value, bool is_space = false) {
     if (is_space) {
       if (ctx.is_global()) {
@@ -111,12 +112,12 @@ void ArrayDeclareWithInit(NArrayDeclareWithInit& that,
       if (ctx.is_global())
         ir.emplace_back(IR::OpCode::DATA_WORD, value);
       else
-        ir.emplace_back(IR::OpCode::STORE, OpName(),
-                        OpName(ctx.find_symbol(that.name.name.name).name),
+        ir.emplace_back(IR::OpCode::STORE, IR::OpName(),
+                        IR::OpName(ctx.find_symbol(that.name.name.name).name),
                         init_value.size() * 4 - 4, value);
     }
   };
-  const auto output = [&](OpName value, bool is_space = false) {
+  const auto output = [&](IR::OpName value, bool is_space = false) {
     if (is_space) {
       if (ctx.is_global()) {
         for (int i = 0; i < value.value; i++) init_value.push_back(0);
@@ -131,8 +132,8 @@ void ArrayDeclareWithInit(NArrayDeclareWithInit& that,
       if (ctx.is_global())
         ir.emplace_back(IR::OpCode::DATA_WORD, value);
       else
-        ir.emplace_back(IR::OpCode::STORE, OpName(),
-                        OpName(ctx.find_symbol(that.name.name.name).name),
+        ir.emplace_back(IR::OpCode::STORE, IR::OpName(),
+                        IR::OpName(ctx.find_symbol(that.name.name.name).name),
                         init_value.size() * 4 - 4, value);
     }
   };
@@ -160,8 +161,8 @@ void ArrayDeclareWithInit(NArrayDeclareWithInit& that,
         else
           output(size_this_shape - (write_size % size_this_shape), true);
       }
-      ArrayDeclareWithInit(that, i->value_list, shape, init_value, index + 1,
-                           ctx, ir);
+      _ArrayDeclareWithInit(that, i->value_list, shape, init_value, index + 1,
+                            ctx, ir);
       write_size += size_this_shape;
     }
   }
@@ -172,7 +173,7 @@ void ArrayDeclareWithInit(NArrayDeclareWithInit& that,
 }
 }  // namespace
 
-void NArrayDeclareWithInit::generate_ir(ContextIR& ctx, IRList& ir) {
+void Node::ArrayDeclareWithInit::generate_ir(ContextIR& ctx, IRList& ir) {
   std::vector<int> shape;
   for (auto i : this->name.shape) shape.push_back(i->eval(ctx));
   int size = 1;
@@ -181,8 +182,8 @@ void NArrayDeclareWithInit::generate_ir(ContextIR& ctx, IRList& ir) {
   std::vector<int> init_value;
   if (ctx.is_global()) {
     ir.emplace_back(IR::OpCode::DATA_BEGIN, "@&" + this->name.name.name);
-    ArrayDeclareWithInit(*this, this->value.value_list, this->name.shape,
-                         init_value, 0, ctx, ir);
+    _ArrayDeclareWithInit(*this, this->value.value_list, this->name.shape,
+                          init_value, 0, ctx, ir);
     ir.emplace_back(IR::OpCode::DATA_END);
     ctx.insert_symbol(this->name.name.name,
                       VarInfo("@&" + this->name.name.name, true, shape));
@@ -191,42 +192,44 @@ void NArrayDeclareWithInit::generate_ir(ContextIR& ctx, IRList& ir) {
         this->name.name.name,
         VarInfo("%&" + std::to_string(ctx.get_id()), true, shape));
     ir.emplace_back(IR::OpCode::MALLOC_IN_STACK,
-                    OpName(ctx.find_symbol(this->name.name.name).name),
+                    IR::OpName(ctx.find_symbol(this->name.name.name).name),
                     size * 4);
     ir.emplace_back(IR::OpCode::SET_ARG, 0,
-                    OpName(ctx.find_symbol(this->name.name.name).name));
-    ir.emplace_back(IR::OpCode::SET_ARG, 1, OpName(0));
-    ir.emplace_back(IR::OpCode::SET_ARG, 2, OpName(size * 4));
+                    IR::OpName(ctx.find_symbol(this->name.name.name).name));
+    ir.emplace_back(IR::OpCode::SET_ARG, 1, IR::OpName(0));
+    ir.emplace_back(IR::OpCode::SET_ARG, 2, IR::OpName(size * 4));
     ir.emplace_back(IR::OpCode::CALL, "memset");
-    ArrayDeclareWithInit(*this, this->value.value_list, this->name.shape,
-                         init_value, 0, ctx, ir);
+    _ArrayDeclareWithInit(*this, this->value.value_list, this->name.shape,
+                          init_value, 0, ctx, ir);
   }
 }
 
-void NFunctionDefine::generate_ir(ContextIR& ctx, IRList& ir) {
+void Node::FunctionDefine::generate_ir(ContextIR& ctx, IRList& ir) {
   ctx.create_scope();
   int arg_len = this->args.list.size();
-  ir.emplace_back(IR::OpCode::FUNCTION_BEGIN, OpName(), arg_len,
+  ir.emplace_back(IR::OpCode::FUNCTION_BEGIN, IR::OpName(), arg_len,
                   this->name.name);
   for (int i = 0; i < arg_len; i++) {
     auto identifier =
-        dynamic_cast<NArrayIdentifier*>(&this->args.list[i]->name);
+        dynamic_cast<Node::ArrayIdentifier*>(&this->args.list[i]->name);
     if (identifier) {
       std::vector<int> shape;
       for (auto i : identifier->shape) shape.push_back(i->eval(ctx));
       auto tmp = "%" + std::to_string(ctx.get_id());
-      ir.emplace_back(IR::OpCode::MOV, tmp, OpName("$arg" + std::to_string(i)));
+      ir.emplace_back(IR::OpCode::MOV, tmp,
+                      IR::OpName("$arg" + std::to_string(i)));
       ctx.insert_symbol(identifier->name.name, VarInfo(tmp, true, shape));
       ir.emplace_back(IR::OpCode::INFO, "NOT CONSTEXPR");
     } else {
       auto tmp = "%" + std::to_string(ctx.get_id());
-      ir.emplace_back(IR::OpCode::MOV, tmp, OpName("$arg" + std::to_string(i)));
+      ir.emplace_back(IR::OpCode::MOV, tmp,
+                      IR::OpName("$arg" + std::to_string(i)));
       ctx.insert_symbol(this->args.list[i]->name.name, VarInfo(tmp));
     }
   }
   this->body.generate_ir(ctx, ir);
   if (this->return_type == INT) {
-    ir.emplace_back(IR::OpCode::RET, OpName(), 0);
+    ir.emplace_back(IR::OpCode::RET, IR::OpName(), 0);
   } else {
     ir.emplace_back(IR::OpCode::RET);
   }
@@ -234,54 +237,54 @@ void NFunctionDefine::generate_ir(ContextIR& ctx, IRList& ir) {
   ctx.end_scope();
 }
 
-void NBlock::generate_ir(ContextIR& ctx, IRList& ir) {
+void Node::Block::generate_ir(ContextIR& ctx, IRList& ir) {
   ctx.create_scope();
   for (auto i : this->statements) i->generate_ir(ctx, ir);
   ctx.end_scope();
 }
 
-void NDeclareStatement::generate_ir(ContextIR& ctx, IRList& ir) {
+void Node::DeclareStatement::generate_ir(ContextIR& ctx, IRList& ir) {
   for (auto i : this->list) i->generate_ir(ctx, ir);
 }
 
-void NVoidStatement::generate_ir(ContextIR& ctx, IRList& ir) {}
+void Node::VoidStatement::generate_ir(ContextIR& ctx, IRList& ir) {}
 
-void NEvalStatement::generate_ir(ContextIR& ctx, IRList& ir) {
+void Node::EvalStatement::generate_ir(ContextIR& ctx, IRList& ir) {
   this->value.eval_runtime(ctx, ir);
 }
 
-void NReturnStatement::generate_ir(ContextIR& ctx, IRList& ir) {
+void Node::ReturnStatement::generate_ir(ContextIR& ctx, IRList& ir) {
   if (this->value != NULL)
-    ir.emplace_back(IR::OpCode::RET, OpName(),
+    ir.emplace_back(IR::OpCode::RET, IR::OpName(),
                     this->value->eval_runtime(ctx, ir));
   else
     ir.emplace_back(IR::OpCode::RET);
 }
 
-void NContinueStatement::generate_ir(ContextIR& ctx, IRList& ir) {
+void Node::ContinueStatement::generate_ir(ContextIR& ctx, IRList& ir) {
   ctx.loop_continue_symbol_snapshot.top().push_back(ctx.symbol_table);
   for (auto& i : ctx.loop_continue_phi_move.top()) {
     ir.emplace_back(
         IR::OpCode::MOV, i.second,
-        OpName(
+        IR::OpName(
             ctx.symbol_table[i.first.first].find(i.first.second)->second.name));
   }
   ir.emplace_back(IR::OpCode::JMP,
                   "LOOP_" + ctx.loop_label.top() + "_CONTINUE");
 }
 
-void NBreakStatement::generate_ir(ContextIR& ctx, IRList& ir) {
+void Node::BreakStatement::generate_ir(ContextIR& ctx, IRList& ir) {
   ctx.loop_break_symbol_snapshot.top().push_back(ctx.symbol_table);
   for (auto& i : ctx.loop_break_phi_move.top()) {
     ir.emplace_back(
         IR::OpCode::MOV, i.second,
-        OpName(
+        IR::OpName(
             ctx.symbol_table[i.first.first].find(i.first.second)->second.name));
   }
   ir.emplace_back(IR::OpCode::JMP, "LOOP_" + ctx.loop_label.top() + "_END");
 }
 
-void NWhileStatement::generate_ir(ContextIR& ctx, IRList& ir) {
+void Node::WhileStatement::generate_ir(ContextIR& ctx, IRList& ir) {
   ctx.create_scope();
   ctx.loop_label.push(std::to_string(ctx.get_id()));
   ctx.loop_var.push({});
@@ -371,9 +374,9 @@ void NWhileStatement::generate_ir(ContextIR& ctx, IRList& ir) {
   this->dostmt.generate_ir(ctx_do, ir_do);
   for (auto& i : ctx_do.loop_continue_phi_move.top()) {
     ir_do.emplace_back(IR::OpCode::PHI_MOV, i.second,
-                       OpName(ctx_do.symbol_table[i.first.first]
-                                  .find(i.first.second)
-                                  ->second.name));
+                       IR::OpName(ctx_do.symbol_table[i.first.first]
+                                      .find(i.first.second)
+                                      ->second.name));
   }
 
   for (auto& i : ctx_do.loop_continue_phi_move.top()) {
@@ -408,10 +411,10 @@ void NWhileStatement::generate_ir(ContextIR& ctx, IRList& ir) {
       if (symbol_before.second.name != symbo_continue.second.name) {
         const std::string new_name = "%" + std::to_string(ctx_before.get_id());
         ir_before.emplace_back(IR::OpCode::PHI_MOV, new_name,
-                               OpName(symbol_before.second.name));
+                               IR::OpName(symbol_before.second.name));
         ir_before.back().phi_block = ir_cond.begin();
         ir_continue.emplace_back(IR::OpCode::PHI_MOV, new_name,
-                                 OpName(symbo_continue.second.name));
+                                 IR::OpName(symbo_continue.second.name));
         ctx_before.symbol_table[i].find(symbol_before.first)->second.name =
             new_name;
         ctx_before.loop_var.top().push_back(new_name);
@@ -489,9 +492,9 @@ void NWhileStatement::generate_ir(ContextIR& ctx, IRList& ir) {
   this->dostmt.generate_ir(ctx_do, ir_do);
   for (auto& i : ctx_do.loop_continue_phi_move.top()) {
     ir_do.emplace_back(IR::OpCode::PHI_MOV, i.second,
-                       OpName(ctx_do.symbol_table[i.first.first]
-                                  .find(i.first.second)
-                                  ->second.name));
+                       IR::OpName(ctx_do.symbol_table[i.first.first]
+                                      .find(i.first.second)
+                                      ->second.name));
     ir_do.back().phi_block = end.begin();
   }
   for (auto& i : ctx_do.loop_continue_phi_move.top()) {
@@ -519,7 +522,7 @@ void NWhileStatement::generate_ir(ContextIR& ctx, IRList& ir) {
           *ctx_continue.symbol_table[i].find(symbol_before.first);
       if (symbol_before.second.name != symbo_continue.second.name) {
         ir_continue.emplace_back(IR::OpCode::PHI_MOV, symbol_before.second.name,
-                                 OpName(symbo_continue.second.name));
+                                 IR::OpName(symbo_continue.second.name));
         ir_continue.back().phi_block = ir_cond.begin();
       }
     }
@@ -535,15 +538,15 @@ void NWhileStatement::generate_ir(ContextIR& ctx, IRList& ir) {
   /////////////////////////////////////////////////////////
 
   // 为 continue 块增加假读以延长其生命周期
-  std::unordered_set<std::string> writed;
+  std::unordered_set<std::string> written;
   for (const auto& irs : std::vector<IRList*>{&ir_cond, &ir_jmp, &ir_do}) {
     for (const auto& i : *irs) {
-      if (i.dest.type == OpName::Type::Var) writed.insert(i.dest.name);
-#define F(op1)                                                     \
-  if (i.op1.type == OpName::Type::Var) {                           \
-    if (!writed.count(i.op1.name)) {                               \
-      ir_continue.emplace_back(IR::OpCode::NOOP, OpName(), i.op1); \
-    }                                                              \
+      if (i.dest.is_var()) written.insert(i.dest.name);
+#define F(op1)                                                         \
+  if (i.op1.is_var()) {                                                \
+    if (!written.count(i.op1.name)) {                                  \
+      ir_continue.emplace_back(IR::OpCode::NOOP, IR::OpName(), i.op1); \
+    }                                                                  \
   }
       F(op1);
       F(op2);
@@ -568,7 +571,7 @@ void NWhileStatement::generate_ir(ContextIR& ctx, IRList& ir) {
   ctx.end_scope();
 }
 
-void NIfElseStatement::generate_ir(ContextIR& ctx, IRList& ir) {
+void Node::IfElseStatement::generate_ir(ContextIR& ctx, IRList& ir) {
   ctx.create_scope();
 
   auto id = std::to_string(ctx.get_id());
@@ -610,11 +613,11 @@ void NIfElseStatement::generate_ir(ContextIR& ctx, IRList& ir) {
         assert(!v.is_array);
         if (v.name[0] == '%') v.name = "%" + std::to_string(ctx.get_id());
         ir_then.emplace_back(IR::OpCode::PHI_MOV, v.name,
-                             OpName(s.second.name));
+                             IR::OpName(s.second.name));
         ir_then.back().phi_block = end.begin();
         ir_else.emplace_back(
             IR::OpCode::PHI_MOV, v.name,
-            OpName(ctx_else.symbol_table[i].find(s.first)->second.name));
+            IR::OpName(ctx_else.symbol_table[i].find(s.first)->second.name));
         ir_else.back().phi_block = end.begin();
       }
     }
@@ -642,17 +645,18 @@ void NIfElseStatement::generate_ir(ContextIR& ctx, IRList& ir) {
   ctx.end_scope();
 }
 
-void NAssignment::generate_ir(ContextIR& ctx, IRList& ir) {
-  if (dynamic_cast<NArrayIdentifier*>(&this->lhs)) {
+void Node::Assignment::generate_ir(ContextIR& ctx, IRList& ir) {
+  if (dynamic_cast<Node::ArrayIdentifier*>(&this->lhs)) {
     auto rhs = this->rhs.eval_runtime(ctx, ir);
-    dynamic_cast<NArrayIdentifier*>(&this->lhs)->store_runtime(rhs, ctx, ir);
+    dynamic_cast<Node::ArrayIdentifier*>(&this->lhs)
+        ->store_runtime(rhs, ctx, ir);
   } else {
     auto rhs = this->rhs.eval_runtime(ctx, ir);
     auto& v = ctx.find_symbol(this->lhs.name);
     if (v.is_array) {
       throw std::runtime_error("Can't assign to a array.");
     } else {
-      if (rhs.type == OpName::Type::Var && rhs.name[0] == '%' &&
+      if (rhs.is_var() && rhs.name[0] == '%' &&
           (v.name[0] == '%' || v.name.substr(0, 4) == "$arg") &&
           v.name[0] != '@') {
         if (ctx.in_loop()) {
@@ -676,7 +680,7 @@ void NAssignment::generate_ir(ContextIR& ctx, IRList& ir) {
       } else {
         v.name = "%" + std::to_string(ctx.get_id());
         ir.emplace_back(IR::OpCode::MOV, v.name, rhs);
-        if (config::optimize_level > 0 && rhs.type == OpName::Type::Imm) {
+        if (config::optimize_level > 0 && rhs.is_imm()) {
           ctx.insert_const_assign(v.name, rhs.value);
         }
       }
@@ -684,17 +688,18 @@ void NAssignment::generate_ir(ContextIR& ctx, IRList& ir) {
   }
 }
 
-void NAfterInc::generate_ir(ContextIR& ctx, IRList& ir) {
-  auto n0 = new NNumber(1);
-  auto n1 = new NBinaryExpression(lhs, this->op, *n0);
-  auto n2 = new NAssignment(lhs, *n1);
+void Node::AfterInc::generate_ir(ContextIR& ctx, IRList& ir) {
+  auto n0 = new Node::Number(1);
+  auto n1 = new Node::BinaryExpression(lhs, this->op, *n0);
+  auto n2 = new Node::Assignment(lhs, *n1);
   n2->generate_ir(ctx, ir);
   delete n2;
   delete n1;
   delete n0;
 }
 
-void NArrayIdentifier::store_runtime(OpName value, ContextIR& ctx, IRList& ir) {
+void Node::ArrayIdentifier::store_runtime(IR::OpName value, ContextIR& ctx,
+                                          IRList& ir) {
   auto v = ctx.find_symbol(this->name.name);
   if (v.is_array) {
     if (this->shape.size() == v.shape.size()) {
@@ -705,35 +710,36 @@ void NArrayIdentifier::store_runtime(OpName value, ContextIR& ctx, IRList& ir) {
             index += this->shape[i]->eval(ctx) * size;
             size *= v.shape[i];
           }
-          ir.emplace_back(IR::OpCode::STORE, OpName(), v.name, index, value);
+          ir.emplace_back(IR::OpCode::STORE, IR::OpName(), v.name, index,
+                          value);
           return;
         } catch (...) {
         }
       }
-      OpName index = "%" + std::to_string(ctx.get_id());
-      OpName size = "%" + std::to_string(ctx.get_id());
+      IR::OpName index = "%" + std::to_string(ctx.get_id());
+      IR::OpName size = "%" + std::to_string(ctx.get_id());
       ir.emplace_back(
           IR::OpCode::SAL, index,
           this->shape[this->shape.size() - 1]->eval_runtime(ctx, ir), 2);
       if (this->shape.size() != 1) {
-        OpName tmp = "%" + std::to_string(ctx.get_id());
+        IR::OpName tmp = "%" + std::to_string(ctx.get_id());
         ir.emplace_back(IR::OpCode::MOV, size,
                         4 * v.shape[this->shape.size() - 1]);
       }
       for (int i = this->shape.size() - 2; i >= 0; i--) {
-        OpName tmp = "%" + std::to_string(ctx.get_id());
-        OpName tmp2 = "%" + std::to_string(ctx.get_id());
+        IR::OpName tmp = "%" + std::to_string(ctx.get_id());
+        IR::OpName tmp2 = "%" + std::to_string(ctx.get_id());
         ir.emplace_back(IR::OpCode::IMUL, tmp, size,
                         this->shape[i]->eval_runtime(ctx, ir));
         ir.emplace_back(IR::OpCode::ADD, tmp2, index, tmp);
         index = tmp2;
         if (i != 0) {
-          OpName tmp = "%" + std::to_string(ctx.get_id());
+          IR::OpName tmp = "%" + std::to_string(ctx.get_id());
           ir.emplace_back(IR::OpCode::IMUL, tmp, size, v.shape[i]);
           size = tmp;
         }
       }
-      ir.emplace_back(IR::OpCode::STORE, OpName(), v.name, index, value);
+      ir.emplace_back(IR::OpCode::STORE, IR::OpName(), v.name, index, value);
     } else {
       throw std::runtime_error(this->name.name + "'s shape unmatch.");
     }
@@ -741,3 +747,4 @@ void NArrayIdentifier::store_runtime(OpName value, ContextIR& ctx, IRList& ir) {
     throw std::runtime_error(this->name.name + " is not a array.");
   }
 }
+}  // namespace SYC

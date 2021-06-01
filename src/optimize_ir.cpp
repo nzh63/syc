@@ -25,6 +25,7 @@
 #include "context_asm.h"
 #include "ir.h"
 
+namespace SYC {
 namespace {
 void dead_code_elimination(IRList &ir) {
   ContextASM ctx(&ir, ir.begin());
@@ -35,7 +36,7 @@ void dead_code_elimination(IRList &ir) {
   for (auto it = std::prev(ir.end()); it != ir.begin(); it--) {
     ctx.set_var_latest_use_timestamp(*it);
     auto cur = ctx.ir_to_time[&*it];
-    if (it->dest.type == OpName::Type::Var && it->dest.name[0] == '%' &&
+    if (it->dest.is_var() && it->dest.name[0] == '%' &&
         it->op_code != IR::OpCode::CALL && it->op_code != IR::OpCode::PHI_MOV) {
       if (ctx.var_latest_use_timestamp.find(it->dest.name) ==
               ctx.var_latest_use_timestamp.end() ||
@@ -56,11 +57,11 @@ struct compare_ir {
     const auto &a = _a.first, &b = _b.first;
     if (a.op_code != b.op_code) return a.op_code < b.op_code;
 
-#define F(op1)                                                       \
-  if (a.op1.type != b.op1.type) return a.op1.type < b.op1.type;      \
-  if (a.op1.type == OpName::Type::Var && a.op1.name != b.op1.name)   \
-    return a.op1.name < b.op1.name;                                  \
-  if (a.op1.type == OpName::Type::Imm && a.op1.value != b.op1.value) \
+#define F(op1)                                                  \
+  if (a.op1.type != b.op1.type) return a.op1.type < b.op1.type; \
+  if (a.op1.is_var() && a.op1.name != b.op1.name)               \
+    return a.op1.name < b.op1.name;                             \
+  if (a.op1.is_imm() && a.op1.value != b.op1.value)             \
     return a.op1.value < b.op1.value;
     F(op1)
     F(op2)
@@ -87,12 +88,11 @@ void local_common_subexpression_elimination(IRList &ir) {
         it->op_code != IR::OpCode::FUNCTION_BEGIN) {
       maybe_opt.clear();
     }
-    if (it->dest.type == OpName::Type::Var && it->dest.name[0] == '%' &&
-        it->op1.type != OpName::Type::Null &&
-        it->op2.type != OpName::Type::Null &&
-        it->op_code != IR::OpCode::MOVEQ && it->op_code != IR::OpCode::MOVNE &&
-        it->op_code != IR::OpCode::MOVGT && it->op_code != IR::OpCode::MOVGE &&
-        it->op_code != IR::OpCode::MOVLT && it->op_code != IR::OpCode::MOVLE &&
+    if (it->dest.is_var() && it->dest.name[0] == '%' && !it->op1.is_null() &&
+        !it->op2.is_null() && it->op_code != IR::OpCode::MOVEQ &&
+        it->op_code != IR::OpCode::MOVNE && it->op_code != IR::OpCode::MOVGT &&
+        it->op_code != IR::OpCode::MOVGE && it->op_code != IR::OpCode::MOVLT &&
+        it->op_code != IR::OpCode::MOVLE &&
         it->op_code != IR::OpCode::MALLOC_IN_STACK &&
         it->op_code != IR::OpCode::LOAD && it->op_code != IR::OpCode::MOV &&
         it->op_code != IR::OpCode::PHI_MOV) {
@@ -119,7 +119,7 @@ bool is_constexpr_function(const IRList &irs, IRList::const_iterator begin,
   for (auto it = begin; it != end; it++) {
     auto &ir = *it;
 #define F(op)                                                      \
-  if (ir.op.type == OpName::Type::Var) {                           \
+  if (ir.op.is_var()) {                                            \
     if (ir.op.name[0] != '%' && ir.op.name.substr(0, 4) != "$arg") \
       return false;                                                \
   }
@@ -153,7 +153,7 @@ std::set<std::string> find_constexpr_function(const IRList &irs) {
 
 void local_common_constexpr_function(
     IRList &ir, const std::set<std::string> &constexpr_function) {
-  typedef std::unordered_map<int, OpName> CallArgs;
+  typedef std::unordered_map<int, IR::OpName> CallArgs;
   std::unordered_map<std::string, std::vector<std::pair<CallArgs, std::string>>>
       calls;
   for (auto it = ir.begin(); it != ir.end(); it++) {
@@ -174,7 +174,7 @@ void local_common_constexpr_function(
       }
       bool can_optimize = true;
       for (auto kv : args) {
-        if (kv.second.type == OpName::Type::Var) {
+        if (kv.second.is_var()) {
           if (kv.second.name[0] != '%') {
             can_optimize = false;
             break;
@@ -187,10 +187,10 @@ void local_common_constexpr_function(
       }
       if (!can_optimize) continue;
       bool has_same_call = false;
-      auto eq = [](const OpName &a, const OpName &b) -> bool {
+      auto eq = [](const IR::OpName &a, const IR::OpName &b) -> bool {
         if (a.type != b.type) return false;
-        if (a.type == OpName::Type::Imm) return a.value == b.value;
-        if (a.type == OpName::Type::Var) return a.name == b.name;
+        if (a.is_imm()) return a.value == b.value;
+        if (a.is_var()) return a.name == b.name;
         return true;
       };
       std::string prev_call_result;
@@ -214,16 +214,15 @@ void local_common_constexpr_function(
         }
       }
       if (!has_same_call) {
-        if (it->dest.type == OpName::Type::Var) {
+        if (it->dest.is_var()) {
           calls[function_name].push_back({args, it->dest.name});
         }
       } else {
-        if (it->dest.type == OpName::Type::Var) {
+        if (it->dest.is_var()) {
           it->op_code = IR::OpCode::MOV;
-          it->op1.type = OpName::Type::Var;
-          it->op1.name = prev_call_result;
-          it->op2.type = OpName::Type::Null;
-          it->op2.type = OpName::Type::Null;
+          it->op1 = IR::OpName(prev_call_result);
+          it->op2 = IR::OpName();
+          it->op3 = IR::OpName();
           it->label.clear();
         }
       }
@@ -243,7 +242,7 @@ void optimize_phi_var(IRList &ir) {
   std::map<std::string, std::string> replace_table;
   for (const auto &i : ir) {
 #define F(op1)                                         \
-  if (i.op1.type == OpName::Type::Var) {               \
+  if (i.op1.is_var()) {                                \
     if (use_count.find(i.op1.name) == use_count.end()) \
       use_count[i.op1.name] = 0;                       \
     use_count[i.op1.name]++;                           \
@@ -255,14 +254,13 @@ void optimize_phi_var(IRList &ir) {
   }
   for (auto it = ir.begin(); it != ir.end(); it++) {
     if (it->op_code == IR::OpCode::PHI_MOV) {
-      if (it->op1.type == OpName::Type::Var && use_count[it->op1.name] == 1) {
+      if (it->op1.is_var() && use_count[it->op1.name] == 1) {
         int line = 10;
         if (it == ir.begin()) continue;
         auto it2 = it;
         do {
           it2 = std::prev(it2);
-          if (it2->dest.type == OpName::Type::Var &&
-              it2->dest.name == it->op1.name) {
+          if (it2->dest.is_var() && it2->dest.name == it->op1.name) {
             replace_table[it2->dest.name] = it->dest.name;
           }
         } while (it2 != ir.begin());
@@ -271,7 +269,7 @@ void optimize_phi_var(IRList &ir) {
   }
   for (auto &i : ir) {
 #define F(op1)                                                 \
-  if (i.op1.type == OpName::Type::Var) {                       \
+  if (i.op1.is_var()) {                                        \
     if (replace_table.find(i.op1.name) != replace_table.end()) \
       i.op1.name = replace_table[i.op1.name];                  \
   }
@@ -306,9 +304,9 @@ bool loop_invariant_code_motion(IRList &ir_before, IRList &ir_cond,
       if (ir.op_code == IR::OpCode::LOAD || ir.op_code == IR::OpCode::CALL) {
         continue;
       }
-#define F(op)                            \
-  if (ir.op.type == OpName::Type::Var) { \
-    never_write_var.insert(ir.op.name);  \
+#define F(op)                           \
+  if (ir.op.is_var()) {                 \
+    never_write_var.insert(ir.op.name); \
   }
       F(op1);
       F(op2);
@@ -319,7 +317,7 @@ bool loop_invariant_code_motion(IRList &ir_before, IRList &ir_cond,
   for (auto irs :
        std::vector<IRList *>({&ir_cond, &ir_jmp, &ir_do, &ir_continue})) {
     for (auto &ir : *irs) {
-      if (ir.dest.type == OpName::Type::Var) {
+      if (ir.dest.is_var()) {
         never_write_var.erase(ir.dest.name);
       }
     }
@@ -338,7 +336,7 @@ bool loop_invariant_code_motion(IRList &ir_before, IRList &ir_cond,
         can_optimize = false;
       }
 #define F(op)                                                      \
-  if (ir.op.type == OpName::Type::Var &&                           \
+  if (ir.op.is_var() &&                                            \
       never_write_var.find(ir.op.name) == never_write_var.end()) { \
     can_optimize = false;                                          \
   }
@@ -346,16 +344,16 @@ bool loop_invariant_code_motion(IRList &ir_before, IRList &ir_cond,
       F(op2);
       F(op3);
 #undef F
-      if (ir.dest.type != OpName::Type::Var) {
+      if (!ir.dest.is_var()) {
         can_optimize = false;
       }
       if (can_optimize) {
         ir_before.push_back(ir);
         ir.op_code = IR::OpCode::NOOP;
-        ir.op1.type = OpName::Type::Null;
-        ir.op2.type = OpName::Type::Null;
-        ir.op3.type = OpName::Type::Null;
-        ir.dest.type = OpName::Type::Null;
+        ir.dest = IR::OpName();
+        ir.op1 = IR::OpName();
+        ir.op2 = IR::OpName();
+        ir.op3 = IR::OpName();
         do_optimize = true;
       }
     }
@@ -371,4 +369,5 @@ void optimize_loop_ir(IRList &ir_before, IRList &ir_cond, IRList &ir_jmp,
                                       ir_continue))
       ;
   }
+}
 }

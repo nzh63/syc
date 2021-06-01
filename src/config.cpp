@@ -19,7 +19,7 @@
 
 extern int yydebug;
 
-namespace config {
+namespace SYC::config {
 
 int optimize_level = 0;
 std::ostream* out = &std::cout;
@@ -66,4 +66,4 @@ void parse_arg(int argc, char** argv) {
   }
   if (in != NULL) freopen(in, "r", stdin);
 }
-}  // namespace config
+}  // namespace SYC::config

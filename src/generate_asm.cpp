@@ -35,6 +35,7 @@
 
 using namespace std;
 
+namespace SYC {
 namespace {
 constexpr bitset<ContextASM::reg_count> non_volatile_reg = 0b11111110000;
 
@@ -163,7 +164,8 @@ void generate_function_asm(IRList& irs, IRList::iterator begin,
             << stack_size[0] + stack_size[1] + stack_size[2] + stack_size[3]
             << endl;
       }
-      if (ctx.has_function_call) ctx.store_to_stack("lr", OpName("$ra"), out);
+      if (ctx.has_function_call)
+        ctx.store_to_stack("lr", IR::OpName("$ra"), out);
 
       // 保护现场
       int offset = 4;
@@ -178,7 +180,7 @@ void generate_function_asm(IRList& irs, IRList::iterator begin,
     } else if (ir.op_code == IR::OpCode::MOV ||
                ir.op_code == IR::OpCode::PHI_MOV) {
       bool dest_in_reg = ctx.var_in_reg(ir.dest.name);
-      if (ir.op1.type == OpName::Type::Imm) {
+      if (ir.op1.is_imm()) {
         if (dest_in_reg) {
           ctx.load_imm("r" + to_string(ctx.var_to_reg[ir.dest.name]),
                        ir.op1.value, out);
@@ -186,9 +188,8 @@ void generate_function_asm(IRList& irs, IRList::iterator begin,
           ctx.load_imm("r12", ir.op1.value, out);
           ctx.store_to_stack("r12", ir.dest, out);
         }
-      } else if (ir.op1.type == OpName::Type::Var) {
-        bool op1_in_reg =
-            ir.op1.type == OpName::Type::Var && ctx.var_in_reg(ir.op1.name);
+      } else if (ir.op1.is_var()) {
+        bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);
         int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 12;
         int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 12;
         if (!op1_in_reg) {
@@ -201,43 +202,39 @@ void generate_function_asm(IRList& irs, IRList::iterator begin,
         }
       }
     }
-#define F(OP_NAME, OP)                                                   \
-  else if (ir.op_code == IR::OpCode::OP_NAME) {                          \
-    bool dest_in_reg = ctx.var_in_reg(ir.dest.name);                     \
-    bool op1_in_reg =                                                    \
-        ir.op1.type == OpName::Type::Var && ctx.var_in_reg(ir.op1.name); \
-    bool op2_in_reg =                                                    \
-        ir.op2.type == OpName::Type::Var && ctx.var_in_reg(ir.op2.name); \
-    bool op2_is_imm = ir.op2.type == OpName::Type::Imm &&                \
-                      (ir.op2.value >= 0 && ir.op2.value < 256);         \
-    int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 11;             \
-    int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 12;             \
-    int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 12;          \
-    if (!op2_in_reg && !op2_is_imm) {                                    \
-      ctx.load("r" + to_string(op2), ir.op2, out);                       \
-    }                                                                    \
-    if (!op1_in_reg) {                                                   \
-      ctx.load("r" + to_string(op1), ir.op1, out);                       \
-    }                                                                    \
-    out << "    " OP " r" << dest << ", r" << op1 << ", ";               \
-    if (op2_is_imm) {                                                    \
-      out << "#" << ir.op2.value << endl;                                \
-    } else {                                                             \
-      out << "r" << op2 << endl;                                         \
-    }                                                                    \
-    if (!dest_in_reg) {                                                  \
-      ctx.store_to_stack("r" + to_string(dest), ir.dest, out);           \
-    }                                                                    \
+#define F(OP_NAME, OP)                                                \
+  else if (ir.op_code == IR::OpCode::OP_NAME) {                       \
+    bool dest_in_reg = ctx.var_in_reg(ir.dest.name);                  \
+    bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name); \
+    bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name); \
+    bool op2_is_imm =                                                 \
+        ir.op2.is_imm() && (ir.op2.value >= 0 && ir.op2.value < 256); \
+    int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 11;          \
+    int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 12;          \
+    int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 12;       \
+    if (!op2_in_reg && !op2_is_imm) {                                 \
+      ctx.load("r" + to_string(op2), ir.op2, out);                    \
+    }                                                                 \
+    if (!op1_in_reg) {                                                \
+      ctx.load("r" + to_string(op1), ir.op1, out);                    \
+    }                                                                 \
+    out << "    " OP " r" << dest << ", r" << op1 << ", ";            \
+    if (op2_is_imm) {                                                 \
+      out << "#" << ir.op2.value << endl;                             \
+    } else {                                                          \
+      out << "r" << op2 << endl;                                      \
+    }                                                                 \
+    if (!dest_in_reg) {                                               \
+      ctx.store_to_stack("r" + to_string(dest), ir.dest, out);        \
+    }                                                                 \
   }
     F(ADD, "ADD")
     F(SUB, "SUB")
 #undef F
     else if (ir.op_code == IR::OpCode::IMUL) {
       bool dest_in_reg = ctx.var_in_reg(ir.dest.name);
-      bool op1_in_reg =
-          ir.op1.type == OpName::Type::Var && ctx.var_in_reg(ir.op1.name);
-      bool op2_in_reg =
-          ir.op2.type == OpName::Type::Var && ctx.var_in_reg(ir.op2.name);
+      bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);
+      bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name);
       int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 11;
       int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 12;
       int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 12;
@@ -259,10 +256,9 @@ void generate_function_asm(IRList& irs, IRList::iterator begin,
     }
 #define F(OP_NAME, OP)                                                     \
   else if (ir.op_code == IR::OpCode::OP_NAME) {                            \
-    assert(ir.op2.type == OpName::Type::Imm);                              \
+    assert(ir.op2.is_imm());                                               \
     bool dest_in_reg = ctx.var_in_reg(ir.dest.name);                       \
-    bool op1_in_reg =                                                      \
-        ir.op1.type == OpName::Type::Var && ctx.var_in_reg(ir.op1.name);   \
+    bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);      \
     int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 11;               \
     int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 12;            \
     if (!op1_in_reg) {                                                     \
@@ -278,11 +274,10 @@ void generate_function_asm(IRList& irs, IRList::iterator begin,
     F(SAR, "ASR")
 #undef F
     else if (ir.op_code == IR::OpCode::IDIV) {
-      if (config::optimize_level > 0 && ir.op2.type == OpName::Type::Imm) {
+      if (config::optimize_level > 0 && ir.op2.is_imm()) {
         bool dest_in_reg = ctx.var_in_reg(ir.dest.name);
         int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 11;
-        bool op1_in_reg =
-            ir.op1.type == OpName::Type::Var && ctx.var_in_reg(ir.op1.name);
+        bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);
         int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 0;
         if (!op1_in_reg) {
           ctx.load("r" + to_string(op1), ir.op1, out);
@@ -350,7 +345,7 @@ void generate_function_asm(IRList& irs, IRList::iterator begin,
     }
     else if (ir.op_code == IR::OpCode::CALL) {
       out << "    BL " << ir.label << endl;
-      if (ir.dest.type == OpName::Type::Var) {
+      if (ir.dest.is_var()) {
         if (ctx.var_in_reg(ir.dest.name)) {
           out << "    MOV r" << ctx.var_to_reg[ir.dest.name] << ", r0" << endl;
         } else {
@@ -367,10 +362,8 @@ void generate_function_asm(IRList& irs, IRList::iterator begin,
       }
     }
     else if (ir.op_code == IR::OpCode::CMP) {
-      bool op1_in_reg =
-          ir.op1.type == OpName::Type::Var && ctx.var_in_reg(ir.op1.name);
-      bool op2_in_reg =
-          ir.op2.type == OpName::Type::Var && ctx.var_in_reg(ir.op2.name);
+      bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);
+      bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name);
       int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 12;
       int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 11;
       if (!op1_in_reg) {
@@ -397,9 +390,8 @@ void generate_function_asm(IRList& irs, IRList::iterator begin,
   else if (ir.op_code == IR::OpCode::OP_NAME) {                            \
     bool dest_in_reg = ctx.var_in_reg(ir.dest.name);                       \
     int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 12;            \
-    if (ir.op1.type == OpName::Type::Imm && ir.op1.value >= 0 &&           \
-        ir.op1.value < 256 && ir.op2.type == OpName::Type::Imm &&          \
-        ir.op2.value >= 0 && ir.op2.value < 256) {                         \
+    if (ir.op1.is_imm() && ir.op1.value >= 0 && ir.op1.value < 256 &&      \
+        ir.op2.is_imm() && ir.op2.value >= 0 && ir.op2.value < 256) {      \
       out << "    " OP_THEN " r" << dest << ", #" << ir.op1.value << endl; \
       out << "    " OP_ELSE " r" << dest << ", #" << ir.op2.value << endl; \
       if (!dest_in_reg) {                                                  \
@@ -417,10 +409,8 @@ void generate_function_asm(IRList& irs, IRList::iterator begin,
 #undef F
     else if (ir.op_code == IR::OpCode::AND) {
       bool dest_in_reg = ctx.var_in_reg(ir.dest.name);
-      bool op1_in_reg =
-          ir.op1.type == OpName::Type::Var && ctx.var_in_reg(ir.op1.name);
-      bool op2_in_reg =
-          ir.op2.type == OpName::Type::Var && ctx.var_in_reg(ir.op2.name);
+      bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);
+      bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name);
       int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 12;
       int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 11;
       int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 12;
@@ -439,10 +429,8 @@ void generate_function_asm(IRList& irs, IRList::iterator begin,
     }
     else if (ir.op_code == IR::OpCode::OR) {
       bool dest_in_reg = ctx.var_in_reg(ir.dest.name);
-      bool op1_in_reg =
-          ir.op1.type == OpName::Type::Var && ctx.var_in_reg(ir.op1.name);
-      bool op2_in_reg =
-          ir.op2.type == OpName::Type::Var && ctx.var_in_reg(ir.op2.name);
+      bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);
+      bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name);
       int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 12;
       int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 11;
       int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 12;
@@ -461,18 +449,15 @@ void generate_function_asm(IRList& irs, IRList::iterator begin,
     }
     else if (ir.op_code == IR::OpCode::STORE) {
       // op1 基地址
-      bool op3_in_reg =
-          ir.op3.type == OpName::Type::Var && ctx.var_in_reg(ir.op3.name);
+      bool op3_in_reg = ir.op3.is_var() && ctx.var_in_reg(ir.op3.name);
       int op3 = op3_in_reg ? ctx.var_to_reg[ir.op3.name] : 11;
-      if (ir.op1.type == OpName::Type::Var &&
-          ir.op1.name.substr(0, 2) == "%&" &&
-          ir.op2.type == OpName::Type::Imm) {
+      if (ir.op1.is_var() && ir.op1.name.substr(0, 2) == "%&" &&
+          ir.op2.is_imm()) {
         if (!op3_in_reg) ctx.load("r" + to_string(op3), ir.op3, out);
         int offset = ctx.resolve_stack_offset(ir.op1.name) + ir.op2.value;
         ctx.store_to_stack_offset("r" + to_string(op3), offset, out);
       } else {
-        bool op2_in_reg =
-            ir.op2.type == OpName::Type::Var && ctx.var_in_reg(ir.op2.name);
+        bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name);
         int op1 = 11;
         int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 12;
         if (!op2_in_reg) ctx.load("r" + to_string(op2), ir.op2, out);
@@ -486,17 +471,15 @@ void generate_function_asm(IRList& irs, IRList::iterator begin,
       bool dest_in_reg = ctx.var_in_reg(ir.dest.name);
       int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 12;
       // op1 基地址
-      if (ir.op1.type == OpName::Type::Var &&
-          ir.op1.name.substr(0, 2) == "%&" &&
-          ir.op2.type == OpName::Type::Imm) {
+      if (ir.op1.is_var() && ir.op1.name.substr(0, 2) == "%&" &&
+          ir.op2.is_imm()) {
         int offset = ctx.resolve_stack_offset(ir.op1.name) + ir.op2.value;
         ctx.load_from_stack_offset("r" + to_string(dest), offset, out);
         if (!dest_in_reg) {
           ctx.store_to_stack("r" + to_string(dest), ir.dest, out);
         }
       } else {
-        bool op2_in_reg =
-            ir.op2.type == OpName::Type::Var && ctx.var_in_reg(ir.op2.name);
+        bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name);
         int op1 = 11;
         int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 12;
 
@@ -510,10 +493,10 @@ void generate_function_asm(IRList& irs, IRList::iterator begin,
       }
     }
     else if (ir.op_code == IR::OpCode::RET) {
-      if (ir.op1.type != OpName::Type::Null) {
+      if (!ir.op1.is_null()) {
         ctx.load("r0", ir.op1, out);
       }
-      if (ctx.has_function_call) ctx.load("lr", OpName("$ra"), out);
+      if (ctx.has_function_call) ctx.load("lr", IR::OpName("$ra"), out);
 
       // 恢复现场
       int offset = 4;
@@ -579,3 +562,4 @@ void generate_asm(IRList& irs, ostream& out) {
   null.setstate(std::ios_base::badbit);
   generate_asm(irs, out, null);
 }
+}  // namespace SYC

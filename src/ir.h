@@ -23,23 +23,28 @@
 
 #include "context_ir.h"
 
-class OpName {
- public:
-  enum Type {
-    Var,
-    Imm,
-    Null,
-  };
-  Type type;
-  std::string name;
-  int value;
-  OpName();
-  OpName(std::string name);
-  OpName(int value);
-};
-
+namespace SYC {
 class IR {
  public:
+  class OpName {
+   protected:
+    enum Type {
+      Var,
+      Imm,
+      Null,
+    };
+
+   public:
+    Type type;
+    std::string name;
+    int value;
+    OpName();
+    OpName(std::string name);
+    OpName(int value);
+    bool is_var() const;
+    bool is_imm() const;
+    bool is_null() const;
+  };
   enum class OpCode {
     MALLOC_IN_STACK,  // dest = offset(new StackArray(size op1))
     MOV,              // dest = op1
@@ -84,16 +89,17 @@ class IR {
   };
   OpCode op_code;
   std::string label;
-  OpName op1, op2, op3, dest;
+  IR::OpName op1, op2, op3, dest;
   std::list<IR>::iterator phi_block;
-  IR(OpCode op_code, OpName dest, OpName op1, OpName op2, OpName op3,
+  IR(OpCode op_code, IR::OpName dest, IR::OpName op1, IR::OpName op2,
+     IR::OpName op3, std::string label = "");
+  IR(OpCode op_code, IR::OpName dest, IR::OpName op1, IR::OpName op2,
      std::string label = "");
-  IR(OpCode op_code, OpName dest, OpName op1, OpName op2,
-     std::string label = "");
-  IR(OpCode op_code, OpName dest, OpName op1, std::string label = "");
-  IR(OpCode op_code, OpName dest, std::string label = "");
+  IR(OpCode op_code, IR::OpName dest, IR::OpName op1, std::string label = "");
+  IR(OpCode op_code, IR::OpName dest, std::string label = "");
   IR(OpCode op_code, std::string label = "");
   void print(std::ostream& out = std::cerr, bool verbose = false) const;
 };
 
 using IRList = std::list<IR>;
+}  // namespace SYC

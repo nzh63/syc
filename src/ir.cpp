@@ -17,45 +17,53 @@
  */
 #include "ir.h"
 
-OpName::OpName() : type(OpName::Type::Null) {}
-OpName::OpName(std::string name) : type(OpName::Type::Var), name(name) {}
-OpName::OpName(int value) : type(OpName::Type::Imm), value(value) {}
+namespace SYC {
+IR::OpName::OpName() : type(IR::OpName::Type::Null) {}
+IR::OpName::OpName(std::string name)
+    : type(IR::OpName::Type::Var), name(name) {}
+IR::OpName::OpName(int value) : type(IR::OpName::Type::Imm), value(value) {}
+bool IR::OpName::is_var() const { return this->type == IR::OpName::Type::Var; }
+bool IR::OpName::is_imm() const { return this->type == IR::OpName::Type::Imm; }
+bool IR::OpName::is_null() const {
+  return this->type == IR::OpName::Type::Null;
+}
 
-IR::IR(OpCode op_code, OpName dest, OpName op1, OpName op2, OpName op3,
-       std::string label)
+IR::IR(OpCode op_code, IR::OpName dest, IR::OpName op1, IR::OpName op2,
+       IR::OpName op3, std::string label)
     : op_code(op_code),
       dest(dest),
       op1(op1),
       op2(op2),
       op3(op3),
       label(label) {}
-IR::IR(OpCode op_code, OpName dest, OpName op1, OpName op2, std::string label)
+IR::IR(OpCode op_code, IR::OpName dest, IR::OpName op1, IR::OpName op2,
+       std::string label)
     : op_code(op_code),
       dest(dest),
       op1(op1),
       op2(op2),
-      op3(OpName()),
+      op3(IR::OpName()),
       label(label) {}
-IR::IR(OpCode op_code, OpName dest, OpName op1, std::string label)
+IR::IR(OpCode op_code, IR::OpName dest, IR::OpName op1, std::string label)
     : op_code(op_code),
       dest(dest),
       op1(op1),
-      op2(OpName()),
-      op3(OpName()),
+      op2(IR::OpName()),
+      op3(IR::OpName()),
       label(label) {}
-IR::IR(OpCode op_code, OpName dest, std::string label)
+IR::IR(OpCode op_code, IR::OpName dest, std::string label)
     : op_code(op_code),
       dest(dest),
-      op1(OpName()),
-      op2(OpName()),
-      op3(OpName()),
+      op1(IR::OpName()),
+      op2(IR::OpName()),
+      op3(IR::OpName()),
       label(label) {}
 IR::IR(OpCode op_code, std::string label)
     : op_code(op_code),
-      dest(OpName()),
-      op1(OpName()),
-      op2(OpName()),
-      op3(OpName()),
+      dest(IR::OpName()),
+      op1(IR::OpName()),
+      op2(IR::OpName()),
+      op3(IR::OpName()),
       label(label) {}
 void IR::print(std::ostream& out, bool verbos) const {
   switch (this->op_code) {
@@ -187,13 +195,13 @@ void IR::print(std::ostream& out, bool verbos) const {
       out << "INFO" << std::string(16 - std::string("INFO").size(), ' ');
       break;
   }
-#define F(op)                                       \
-  if (this->op.type == OpName::Type::Imm) {         \
-    out << this->op.value << '\t';                  \
-  } else if (this->op.type == OpName::Type::Var) {  \
-    out << this->op.name << '\t';                   \
-  } else if (this->op.type == OpName::Type::Null) { \
-    out << '\t';                                    \
+#define F(op)                      \
+  if (this->op.is_imm()) {         \
+    out << this->op.value << '\t'; \
+  } else if (this->op.is_var()) {  \
+    out << this->op.name << '\t';  \
+  } else if (this->op.is_null()) { \
+    out << '\t';                   \
   }
   F(dest);
   F(op1);
@@ -202,3 +210,4 @@ void IR::print(std::ostream& out, bool verbos) const {
   out << this->label;
   out << std::endl;
 }
+}  // namespace SYC

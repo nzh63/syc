@@ -18,7 +18,9 @@
 #pragma once
 #include "ir.h"
 
+namespace SYC {
 void optimize_ir(IRList &ir);
 
 void optimize_loop_ir(IRList &ir_before, IRList &ir_cond, IRList &ir_jmp,
                       IRList &ir_do, IRList &ir_continue);
+}  // namespace SYC

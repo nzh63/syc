@@ -17,6 +17,7 @@
  */
 #include "context_asm.h"
 
+namespace SYC {
 using namespace std;
 ContextASM::ContextASM(IRList* irs, IRList::iterator function_begin_it,
                        ostream& log_out)
@@ -54,7 +55,7 @@ void ContextASM::set_ir_timestamp(IR& cur) {
 void ContextASM::set_var_latest_use_timestamp(IR& cur) {
   if (cur.op_code != IR::OpCode::MALLOC_IN_STACK) {
 #define F(op1)                                                           \
-  if (cur.op1.type == OpName::Type::Var) {                               \
+  if (cur.op1.is_var()) {                                                \
     if (!var_latest_use_timestamp.count(cur.op1.name)) {                 \
       var_latest_use_timestamp.insert({cur.op1.name, ir_to_time[&cur]}); \
       var_latest_use_timestamp_heap.insert(                              \
@@ -74,7 +75,7 @@ void ContextASM::set_var_latest_use_timestamp(IR& cur) {
     var_latest_use_timestamp_heap.insert(
         make_pair(ir_to_time[&*cur.phi_block], name));
   }
-  if (cur.op_code == IR::OpCode::IMUL && cur.op1.type == OpName::Type::Var) {
+  if (cur.op_code == IR::OpCode::IMUL && cur.op1.is_var()) {
     var_latest_use_timestamp[cur.op1.name]++;
   }
   // 易失寄存器
@@ -91,7 +92,7 @@ void ContextASM::set_var_latest_use_timestamp(IR& cur) {
 void ContextASM::set_var_define_timestamp(IR& cur) {
   if (cur.op_code != IR::OpCode::MALLOC_IN_STACK &&
       cur.op_code != IR::OpCode::PHI_MOV) {
-    if (cur.dest.type == OpName::Type::Var) {
+    if (cur.dest.is_var()) {
       if (!var_define_timestamp.count(cur.dest.name)) {
         var_define_timestamp.insert({cur.dest.name, ir_to_time[&cur]});
         var_define_timestamp_heap.insert(
@@ -99,7 +100,7 @@ void ContextASM::set_var_define_timestamp(IR& cur) {
       }
     }
   } else if (cur.op_code == IR::OpCode::PHI_MOV) {
-    if (cur.dest.type == OpName::Type::Var) {
+    if (cur.dest.is_var()) {
       if (!var_define_timestamp.count(cur.dest.name)) {
         int time = min(ir_to_time[&*cur.phi_block], ir_to_time[&cur]);
         var_define_timestamp.insert({cur.dest.name, time});
@@ -270,10 +271,10 @@ void ContextASM::load_imm(string reg, int value, ostream& out) {
     out << "    MOV32 " << reg << ", " << value << endl;
 };
 
-void ContextASM::load(string reg, OpName op, ostream& out) {
-  if (op.type == OpName::Type::Imm) {
+void ContextASM::load(string reg, IR::OpName op, ostream& out) {
+  if (op.is_imm()) {
     load_imm(reg, op.value, out);
-  } else if (op.type == OpName::Type::Var) {
+  } else if (op.is_var()) {
     if (var_to_reg.find(op.name) != var_to_reg.end()) {
       if (stoi(reg.substr(1)) != var_to_reg[op.name])
         out << "    MOV " << reg << ", r" << var_to_reg[op.name] << endl;
@@ -345,9 +346,9 @@ void ContextASM::load_from_stack_offset(string reg, int offset, ostream& out,
   }
 }
 
-void ContextASM::store_to_stack(string reg, OpName op, ostream& out,
+void ContextASM::store_to_stack(string reg, IR::OpName op, ostream& out,
                                 string op_code) {
-  if (op.type != OpName::Type::Var) throw runtime_error("WTF");
+  if (!op.is_var()) throw runtime_error("WTF");
   if (op.name[1] == '&') return;
   if (op.name[0] == '%') {
     store_to_stack_offset(reg, resolve_stack_offset(op.name), out, op_code);
@@ -361,3 +362,4 @@ void ContextASM::store_to_stack(string reg, OpName op, ostream& out,
     store_to_stack_offset(reg, offset, out, op_code);
   }
 }
+}  // namespace SYC

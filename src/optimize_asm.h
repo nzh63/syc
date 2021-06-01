@@ -18,4 +18,6 @@
 #pragma once
 #include <istream>
 
+namespace SYC {
 void optimize_asm(std::istream& in, std::ostream& out);
+}  // namespace SYC

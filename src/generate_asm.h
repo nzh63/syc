@@ -18,5 +18,8 @@
 #pragma once
 
 #include "ir.h"
+
+namespace SYC {
 void generate_asm(IRList& irs, std::ostream& out);
 void generate_asm(IRList& irs, std::ostream& out, std::ostream& log_out);
+}  // namespace SYC

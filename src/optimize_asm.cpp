@@ -102,6 +102,7 @@ bool opt_asm2(std::string line1, std::string line2, std::string& tar_line,
 }
 }  // namespace
 
+namespace SYC {
 void optimize_asm(istream& in, ostream& out) {
   string line1;
   string line1_orin;
@@ -145,3 +146,4 @@ void optimize_asm(istream& in, ostream& out) {
     out << line0 << std::endl;
   }
 }
+}  // namespace SYC

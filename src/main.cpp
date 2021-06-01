@@ -24,7 +24,7 @@
 #include "optimize_asm.h"
 #include "optimize_ir.h"
 
-extern NRoot* root;
+SYC::Node::Root* root;
 extern int yyparse();
 extern int yylex_destroy();
 extern void yyset_lineno(int _line_number);
@@ -32,6 +32,7 @@ extern void yyset_lineno(int _line_number);
 constexpr auto N = 3;
 
 int main(int argc, char** argv) {
+  using namespace SYC;
   config::parse_arg(argc, argv);
   yyset_lineno(1);
   yyparse();

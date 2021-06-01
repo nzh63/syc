@@ -19,6 +19,7 @@
 
 #include <exception>
 
+namespace SYC {
 VarInfo::VarInfo(std::string name, bool is_array, std::vector<int> shape)
     : name(name), shape(shape), is_array(is_array) {}
 ConstInfo::ConstInfo(std::vector<int> value, bool is_array,
@@ -87,3 +88,4 @@ bool ContextIR::is_global() {
   return symbol_table.size() == 1 && const_table.size() == 1;
 }
 bool ContextIR::in_loop() { return !loop_label.empty(); }
+}  // namespace SYC

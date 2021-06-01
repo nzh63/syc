@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+namespace SYC {
 class VarInfo {
  public:
   std::vector<int> shape;
@@ -79,3 +80,4 @@ class ContextIR {
       loop_break_phi_move;
   std::stack<std::vector<std::string>> loop_var{};
 };
+}  // namespace SYC

@@ -34,6 +34,7 @@
 #include "ir.h"
 #include "node.h"
 
+namespace SYC {
 class ContextASM {
  private:
   int time = 0;
@@ -118,7 +119,7 @@ class ContextASM {
   // 加载操作
   void load_imm(std::string reg, int value, std::ostream& out);
 
-  void load(std::string reg, OpName op, std::ostream& out);
+  void load(std::string reg, IR::OpName op, std::ostream& out);
 
   void store_to_stack_offset(std::string reg, int offset, std::ostream& out,
                              std::string op = "STR");
@@ -126,6 +127,7 @@ class ContextASM {
   void load_from_stack_offset(std::string reg, int offset, std::ostream& out,
                               std::string op = "LDR");
 
-  void store_to_stack(std::string reg, OpName op, std::ostream& out,
+  void store_to_stack(std::string reg, IR::OpName op, std::ostream& out,
                       std::string op_code = "STR");
 };
+}  // namespace SYC
