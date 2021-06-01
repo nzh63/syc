@@ -151,7 +151,7 @@ void ArrayDeclareWithInit(NArrayDeclareWithInit& that,
         else
           output(i->value->eval(ctx));
       } catch (...) {
-        output(i->value->eval_runntime(ctx, ir));
+        output(i->value->eval_runtime(ctx, ir));
       }
     } else {
       if (write_size % size_this_shape != 0) {
@@ -247,13 +247,13 @@ void NDeclareStatement::generate_ir(ContextIR& ctx, IRList& ir) {
 void NVoidStatement::generate_ir(ContextIR& ctx, IRList& ir) {}
 
 void NEvalStatement::generate_ir(ContextIR& ctx, IRList& ir) {
-  this->value.eval_runntime(ctx, ir);
+  this->value.eval_runtime(ctx, ir);
 }
 
 void NReturnStatement::generate_ir(ContextIR& ctx, IRList& ir) {
   if (this->value != NULL)
     ir.emplace_back(IR::OpCode::RET, OpName(),
-                    this->value->eval_runntime(ctx, ir));
+                    this->value->eval_runtime(ctx, ir));
   else
     ir.emplace_back(IR::OpCode::RET);
 }
@@ -644,10 +644,10 @@ void NIfElseStatement::generate_ir(ContextIR& ctx, IRList& ir) {
 
 void NAssignment::generate_ir(ContextIR& ctx, IRList& ir) {
   if (dynamic_cast<NArrayIdentifier*>(&this->lhs)) {
-    auto rhs = this->rhs.eval_runntime(ctx, ir);
+    auto rhs = this->rhs.eval_runtime(ctx, ir);
     dynamic_cast<NArrayIdentifier*>(&this->lhs)->store_runntime(rhs, ctx, ir);
   } else {
-    auto rhs = this->rhs.eval_runntime(ctx, ir);
+    auto rhs = this->rhs.eval_runtime(ctx, ir);
     auto& v = ctx.find_symbol(this->lhs.name);
     if (v.is_array) {
       throw std::runtime_error("Can't assign to a array.");
@@ -715,7 +715,7 @@ void NArrayIdentifier::store_runntime(OpName value, ContextIR& ctx,
       OpName size = "%" + std::to_string(ctx.get_id());
       ir.emplace_back(
           IR::OpCode::SAL, index,
-          this->shape[this->shape.size() - 1]->eval_runntime(ctx, ir), 2);
+          this->shape[this->shape.size() - 1]->eval_runtime(ctx, ir), 2);
       if (this->shape.size() != 1) {
         OpName tmp = "%" + std::to_string(ctx.get_id());
         ir.emplace_back(IR::OpCode::MOV, size,
@@ -725,7 +725,7 @@ void NArrayIdentifier::store_runntime(OpName value, ContextIR& ctx,
         OpName tmp = "%" + std::to_string(ctx.get_id());
         OpName tmp2 = "%" + std::to_string(ctx.get_id());
         ir.emplace_back(IR::OpCode::IMUL, tmp, size,
-                        this->shape[i]->eval_runntime(ctx, ir));
+                        this->shape[i]->eval_runtime(ctx, ir));
         ir.emplace_back(IR::OpCode::ADD, tmp2, index, tmp);
         index = tmp2;
         if (i != 0) {

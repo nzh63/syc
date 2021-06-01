@@ -154,11 +154,11 @@ int NEvalStatement::eval(ContextIR& ctx) { return this->value.eval(ctx); }
 
 // 运行期间求值
 
-OpName NExpression::eval_runntime(ContextIR& ctx, IRList& ir) {
+OpName NExpression::eval_runtime(ContextIR& ctx, IRList& ir) {
   throw std::runtime_error("can not eval this value at run time.");
 }
 
-OpName NIdentifier::eval_runntime(ContextIR& ctx, IRList& ir) {
+OpName NIdentifier::eval_runtime(ContextIR& ctx, IRList& ir) {
   auto v = ctx.find_symbol(this->name);
   if (v.is_array) {
     return v.name;
@@ -172,7 +172,7 @@ OpName NIdentifier::eval_runntime(ContextIR& ctx, IRList& ir) {
     return v.name;
   }
 }
-OpName NArrayIdentifier::eval_runntime(ContextIR& ctx, IRList& ir) {
+OpName NArrayIdentifier::eval_runtime(ContextIR& ctx, IRList& ir) {
   auto v = ctx.find_symbol(this->name.name);
   if (v.is_array) {
     if (this->shape.size() == v.shape.size()) {
@@ -193,7 +193,7 @@ OpName NArrayIdentifier::eval_runntime(ContextIR& ctx, IRList& ir) {
       OpName size = "%" + std::to_string(ctx.get_id());
       ir.emplace_back(
           IR::OpCode::SAL, index,
-          this->shape[this->shape.size() - 1]->eval_runntime(ctx, ir), 2);
+          this->shape[this->shape.size() - 1]->eval_runtime(ctx, ir), 2);
       if (this->shape.size() != 1) {
         OpName tmp = "%" + std::to_string(ctx.get_id());
         ir.emplace_back(IR::OpCode::MOV, size,
@@ -203,7 +203,7 @@ OpName NArrayIdentifier::eval_runntime(ContextIR& ctx, IRList& ir) {
         OpName tmp = "%" + std::to_string(ctx.get_id());
         OpName tmp2 = "%" + std::to_string(ctx.get_id());
         ir.emplace_back(IR::OpCode::IMUL, tmp, size,
-                        this->shape[i]->eval_runntime(ctx, ir));
+                        this->shape[i]->eval_runtime(ctx, ir));
         ir.emplace_back(IR::OpCode::ADD, tmp2, index, tmp);
         index = tmp2;
         if (i != 0) {
@@ -221,8 +221,8 @@ OpName NArrayIdentifier::eval_runntime(ContextIR& ctx, IRList& ir) {
     throw std::runtime_error(this->name.name + " is not a array.");
   }
 }
-OpName NConditionExpression::eval_runntime(ContextIR& ctx, IRList& ir) {
-  return this->value.eval_runntime(ctx, ir);
+OpName NConditionExpression::eval_runtime(ContextIR& ctx, IRList& ir) {
+  return this->value.eval_runtime(ctx, ir);
 }
 
 namespace {
@@ -235,7 +235,7 @@ int log2(int a) {
   return ans;
 }
 }  // namespace
-OpName NBinaryExpression::eval_runntime(ContextIR& ctx, IRList& ir) {
+OpName NBinaryExpression::eval_runtime(ContextIR& ctx, IRList& ir) {
   if (config::optimize_level > 0) {
     try {
       return this->eval(ctx);
@@ -248,16 +248,16 @@ OpName NBinaryExpression::eval_runntime(ContextIR& ctx, IRList& ir) {
       try {
         lhs = this->lhs.eval(ctx);
       } catch (...) {
-        lhs = this->lhs.eval_runntime(ctx, ir);
+        lhs = this->lhs.eval_runtime(ctx, ir);
       }
       try {
         rhs = this->rhs.eval(ctx);
       } catch (...) {
-        rhs = this->rhs.eval_runntime(ctx, ir);
+        rhs = this->rhs.eval_runtime(ctx, ir);
       }
     } else {
-      lhs = this->lhs.eval_runntime(ctx, ir);
-      rhs = this->rhs.eval_runntime(ctx, ir);
+      lhs = this->lhs.eval_runtime(ctx, ir);
+      rhs = this->rhs.eval_runtime(ctx, ir);
     }
   }
   switch (this->op) {
@@ -347,7 +347,7 @@ OpName NBinaryExpression::eval_runntime(ContextIR& ctx, IRList& ir) {
       ir.emplace_back(IR::OpCode::PHI_MOV, dest, OpName(0));
       ir.back().phi_block = end.begin();
       ir.emplace_back(lhs.else_op, label);
-      auto rhs = this->rhs.eval_runntime(ctx, ir);
+      auto rhs = this->rhs.eval_runtime(ctx, ir);
       ir.emplace_back(IR::OpCode::PHI_MOV, dest, rhs);
       ir.back().phi_block = end.begin();
 
@@ -364,7 +364,7 @@ OpName NBinaryExpression::eval_runntime(ContextIR& ctx, IRList& ir) {
       ir.emplace_back(IR::OpCode::PHI_MOV, dest, OpName(1));
       ir.back().phi_block = end.begin();
       ir.emplace_back(lhs.then_op, label);
-      auto rhs = this->rhs.eval_runntime(ctx, ir);
+      auto rhs = this->rhs.eval_runtime(ctx, ir);
       ir.emplace_back(IR::OpCode::PHI_MOV, dest, rhs);
       ir.back().phi_block = end.begin();
 
@@ -378,7 +378,7 @@ OpName NBinaryExpression::eval_runntime(ContextIR& ctx, IRList& ir) {
   }
   return dest;
 }
-OpName NUnaryExpression::eval_runntime(ContextIR& ctx, IRList& ir) {
+OpName NUnaryExpression::eval_runtime(ContextIR& ctx, IRList& ir) {
   if (config::optimize_level > 0) {
     try {
       return this->eval(ctx);
@@ -388,17 +388,16 @@ OpName NUnaryExpression::eval_runntime(ContextIR& ctx, IRList& ir) {
   OpName dest = "%" + std::to_string(ctx.get_id());
   switch (this->op) {
     case PLUS:
-      return rhs.eval_runntime(ctx, ir);
+      return rhs.eval_runtime(ctx, ir);
       break;
 
     case MINUS:
-      ir.emplace_back(IR::OpCode::SUB, dest, 0, rhs.eval_runntime(ctx, ir));
+      ir.emplace_back(IR::OpCode::SUB, dest, 0, rhs.eval_runtime(ctx, ir));
       return dest;
       break;
 
     case NOT:
-      ir.push_back(
-          IR(IR::OpCode::CMP, OpName(), 0, rhs.eval_runntime(ctx, ir)));
+      ir.push_back(IR(IR::OpCode::CMP, OpName(), 0, rhs.eval_runtime(ctx, ir)));
       ir.emplace_back(IR::OpCode::MOVEQ, dest, OpName(0));
       ir.emplace_back(IR::OpCode::MOVNE, dest, OpName(1));
       return dest;
@@ -409,19 +408,19 @@ OpName NUnaryExpression::eval_runntime(ContextIR& ctx, IRList& ir) {
       break;
   }
 }
-OpName NCommaExpression::eval_runntime(ContextIR& ctx, IRList& ir) {
+OpName NCommaExpression::eval_runtime(ContextIR& ctx, IRList& ir) {
   OpName ret;
   for (auto v : values) {
-    ret = v->eval_runntime(ctx, ir);
+    ret = v->eval_runtime(ctx, ir);
   }
   return ret;
 }
 
-OpName NFunctionCall::eval_runntime(ContextIR& ctx, IRList& ir) {
+OpName NFunctionCall::eval_runtime(ContextIR& ctx, IRList& ir) {
   std::vector<OpName> list;
   OpName dest = "%" + std::to_string(ctx.get_id());
   for (int i = 0; i < this->args.args.size(); i++) {
-    list.push_back(this->args.args[i]->eval_runntime(ctx, ir));
+    list.push_back(this->args.args[i]->eval_runtime(ctx, ir));
   }
   for (int i = this->args.args.size() - 1; i >= 0; i--) {
     ir.emplace_back(IR::OpCode::SET_ARG, i, list[i]);
@@ -429,16 +428,14 @@ OpName NFunctionCall::eval_runntime(ContextIR& ctx, IRList& ir) {
   ir.emplace_back(IR::OpCode::CALL, dest, this->name.name);
   return dest;
 }
-OpName NNumber::eval_runntime(ContextIR& ctx, IRList& ir) {
-  return this->value;
-}
+OpName NNumber::eval_runtime(ContextIR& ctx, IRList& ir) { return this->value; }
 
-OpName NStatement::eval_runntime(ContextIR& ctx, IRList& ir) {
+OpName NStatement::eval_runtime(ContextIR& ctx, IRList& ir) {
   this->generate_ir(ctx, ir);
   return OpName();
 }
 
-OpName NAssignment::eval_runntime(ContextIR& ctx, IRList& ir) {
+OpName NAssignment::eval_runtime(ContextIR& ctx, IRList& ir) {
   this->generate_ir(ctx, ir);
   if (dynamic_cast<NArrayIdentifier*>(&this->lhs)) {
     assert(ir.back().op_code == IR::OpCode::STORE);
@@ -449,27 +446,27 @@ OpName NAssignment::eval_runntime(ContextIR& ctx, IRList& ir) {
   }
 }
 
-OpName NAfterInc::eval_runntime(ContextIR& ctx, IRList& ir) {
+OpName NAfterInc::eval_runtime(ContextIR& ctx, IRList& ir) {
   auto v = ctx.find_symbol(this->lhs.name);
   auto n0 = new NNumber(1);
   auto n1 = new NBinaryExpression(lhs, this->op, *n0);
   auto n2 = new NAssignment(lhs, *n1);
-  n2->eval_runntime(ctx, ir);
+  n2->eval_runtime(ctx, ir);
   delete n2;
   delete n1;
   delete n0;
   return v.name;
 }
 
-OpName NEvalStatement::eval_runntime(ContextIR& ctx, IRList& ir) {
-  return this->value.eval_runntime(ctx, ir);
+OpName NEvalStatement::eval_runtime(ContextIR& ctx, IRList& ir) {
+  return this->value.eval_runtime(ctx, ir);
 }
 
 NExpression::CondResult NExpression::eval_cond_runntime(ContextIR& ctx,
                                                         IRList& ir) {
   CondResult ret;
   OpName dest = "%" + std::to_string(ctx.get_id());
-  ir.emplace_back(IR::OpCode::CMP, dest, this->eval_runntime(ctx, ir),
+  ir.emplace_back(IR::OpCode::CMP, dest, this->eval_runtime(ctx, ir),
                   OpName(0));
   ret.then_op = IR::OpCode::JNE;
   ret.else_op = IR::OpCode::JEQ;
@@ -495,16 +492,16 @@ NExpression::CondResult NBinaryExpression::eval_cond_runntime(ContextIR& ctx,
       try {
         lhs = this->lhs.eval(ctx);
       } catch (...) {
-        lhs = this->lhs.eval_runntime(ctx, ir);
+        lhs = this->lhs.eval_runtime(ctx, ir);
       }
       try {
         rhs = this->rhs.eval(ctx);
       } catch (...) {
-        rhs = this->rhs.eval_runntime(ctx, ir);
+        rhs = this->rhs.eval_runtime(ctx, ir);
       }
     } else {
-      lhs = this->lhs.eval_runntime(ctx, ir);
-      rhs = this->rhs.eval_runntime(ctx, ir);
+      lhs = this->lhs.eval_runtime(ctx, ir);
+      rhs = this->rhs.eval_runtime(ctx, ir);
     }
   }
   switch (this->op) {
@@ -545,7 +542,7 @@ NExpression::CondResult NBinaryExpression::eval_cond_runntime(ContextIR& ctx,
       break;
 
     default:
-      ir.emplace_back(IR::OpCode::CMP, OpName(), this->eval_runntime(ctx, ir),
+      ir.emplace_back(IR::OpCode::CMP, OpName(), this->eval_runtime(ctx, ir),
                       OpName(0));
       ret.then_op = IR::OpCode::JNE;
       ret.else_op = IR::OpCode::JEQ;

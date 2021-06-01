@@ -40,7 +40,7 @@ class Node {
 class NExpression : public Node {
  public:
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runntime(ContextIR& ctx, IRList& ir);
+  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
   struct CondResult {
     IR::OpCode then_op;
     IR::OpCode else_op;
@@ -49,7 +49,7 @@ class NExpression : public Node {
 };
 
 class NStatement : public NExpression {
-  virtual OpName eval_runntime(ContextIR& ctx, IRList& ir);
+  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
 class NDeclare : public Node {};
@@ -61,7 +61,7 @@ class NIdentifier : public NExpression {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runntime(ContextIR& ctx, IRList& ir);
+  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
 class NConditionExpression : public NExpression {
@@ -71,7 +71,7 @@ class NConditionExpression : public NExpression {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runntime(ContextIR& ctx, IRList& ir);
+  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
 class NBinaryExpression : public NExpression {
@@ -83,7 +83,7 @@ class NBinaryExpression : public NExpression {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runntime(ContextIR& ctx, IRList& ir);
+  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
   virtual CondResult eval_cond_runntime(ContextIR& ctx, IRList& ir);
 };
 
@@ -95,7 +95,7 @@ class NUnaryExpression : public NExpression {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runntime(ContextIR& ctx, IRList& ir);
+  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
 class NCommaExpression : public NExpression {
@@ -105,7 +105,7 @@ class NCommaExpression : public NExpression {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runntime(ContextIR& ctx, IRList& ir);
+  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
 class NFunctionCallArgList : public NExpression {
@@ -122,7 +122,7 @@ class NFunctionCall : public NExpression {
   NFunctionCall(NIdentifier& name, NFunctionCallArgList& args);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual OpName eval_runntime(ContextIR& ctx, IRList& ir);
+  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
 class NNumber : public NExpression {
@@ -133,7 +133,7 @@ class NNumber : public NExpression {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runntime(ContextIR& ctx, IRList& ir);
+  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
 class NBlock : public NStatement {
@@ -152,7 +152,7 @@ class NAssignment : public NStatement {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
-  virtual OpName eval_runntime(ContextIR& ctx, IRList& ir);
+  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
 class NAfterInc : public NStatement {
@@ -163,7 +163,7 @@ class NAfterInc : public NStatement {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
-  virtual OpName eval_runntime(ContextIR& ctx, IRList& ir);
+  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
 class NIfElseStatement : public NStatement {
@@ -217,7 +217,7 @@ class NEvalStatement : public NStatement {
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runntime(ContextIR& ctx, IRList& ir);
+  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
 class NVoidStatement : public NStatement {
@@ -275,7 +275,7 @@ class NArrayIdentifier : public NIdentifier {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual int eval(ContextIR& ctx);
-  virtual OpName eval_runntime(ContextIR& ctx, IRList& ir);
+  virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
   void store_runntime(OpName value, ContextIR& ctx, IRList& ir);
 };
 
