@@ -150,6 +150,35 @@ int NCommaExpression::eval(ContextIR& ctx) {
 
 int NNumber::eval(ContextIR& ctx) { return this->value; }
 
+int NAssignment::eval(ContextIR& ctx) {
+  if (dynamic_cast<NArrayIdentifier*>(&this->lhs) != nullptr) {
+    throw std::runtime_error("only can eval a local var");
+  }
+  auto val = this->rhs.eval(ctx);
+  auto& v = ctx.find_symbol(this->lhs.name);
+  if (v.name[0] != '%' || v.is_array) {
+    throw std::runtime_error("only can eval a local var");
+  }
+  v.name = "%" + std::to_string(ctx.get_id());
+  ctx.insert_const_assign(v.name, val);
+  return val;
+}
+
+int NAfterInc::eval(ContextIR& ctx) {
+  if (dynamic_cast<NArrayIdentifier*>(&this->lhs) != nullptr) {
+    throw std::runtime_error("only can eval a local var");
+  }
+  auto val = this->lhs.eval(ctx);
+  auto& v = ctx.find_symbol(this->lhs.name);
+  if (v.name[0] != '%' || v.is_array) {
+    throw std::runtime_error("only can eval a local var");
+  }
+  v.name = "%" + std::to_string(ctx.get_id());
+  auto new_val = this->op == PLUS ? val + 1 : val - 1;
+  ctx.insert_const_assign(v.name, new_val);
+  return val;
+}
+
 int NEvalStatement::eval(ContextIR& ctx) { return this->value.eval(ctx); }
 
 // 运行期间求值

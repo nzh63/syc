@@ -152,6 +152,7 @@ class NAssignment : public NStatement {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
+  virtual int eval(ContextIR& ctx);
   virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
@@ -163,6 +164,7 @@ class NAfterInc : public NStatement {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual void generate_ir(ContextIR& ctx, IRList& ir);
+  virtual int eval(ContextIR& ctx);
   virtual OpName eval_runtime(ContextIR& ctx, IRList& ir);
 };
 
