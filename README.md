@@ -17,8 +17,8 @@ OPTIONS:
   -o <file>     Place the output into <file>.
   -O<number>    Set optimization level to <number>.
   -yydebug      Enable debug of yacc parsers.
-  -print_ast    Print the AST ro stderr.
-  -print_ir     Print the IR ro stderr.
+  -print_ast    Print the AST to stderr.
+  -print_ir     Print the IR to stderr.
 
 ```
 
