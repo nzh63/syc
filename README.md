@@ -1,5 +1,9 @@
 ARMv7a上的SysY编译器
 
+## Try it in your browser
+
+Syc works with browsers that support WebAssembly. Click [here](https://nzh63.github.io/syc/) to it out.
+
 ## Build
 
 ```bash
