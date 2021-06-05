@@ -1,0 +1,28 @@
+name: Deploy Github Psges
+on:
+  push:
+    branches:
+      - master
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2.3.1
+
+      - name: Install emsdk
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git
+          ./emsdk/emsdk install latest
+          ./emsdk/emsdk activate latest
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+
+      - name: Build
+        run: |
+          source $GITHUB_WORKSPACE/emsdk/emsdk_env.sh && bash demo/build.sh
+
+      - name: Deploy 🚀
+        uses: JamesIves/github-pages-deploy-action@4.1.4
+        with:
+          branch: gh-page
+          folder: demo/www
