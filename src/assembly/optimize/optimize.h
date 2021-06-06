@@ -17,6 +17,7 @@
  */
 #pragma once
 #include <istream>
+#include <ostream>
 
 namespace syc::assembly {
 void optimize(std::istream& in, std::ostream& out);

@@ -17,8 +17,8 @@
  */
 #include "ir/optimize/passes/local_common_constexpr_function_elimination.h"
 
-#include <list>
 #include <set>
+#include <string>
 #include <unordered_map>
 
 #include "assembly/generate/context.h"

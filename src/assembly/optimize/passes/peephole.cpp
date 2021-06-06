@@ -17,7 +17,8 @@
  */
 #include "assembly/optimize/passes/peephole.h"
 
-#include <iostream>
+#include <istream>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <vector>

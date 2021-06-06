@@ -22,13 +22,13 @@ extern int yydebug;
 namespace syc::config {
 
 int optimize_level = 0;
-std::ostream* out = &std::cout;
+FILE* input = stdin;
+std::ostream* output = &std::cout;
 bool print_ast = false;
 bool print_ir = false;
 bool print_log = false;
 
 void parse_arg(int argc, char** argv) {
-  char* in = NULL;
   yydebug = 0;
   int s = 0;
   for (int i = 1; i < argc; i++) {
@@ -52,18 +52,17 @@ void parse_arg(int argc, char** argv) {
     } else {
       if (s == 1) {
         if (std::string("-") == argv[i])
-          out = &std::cout;
+          output = &std::cout;
         else
-          out = new std::ofstream(argv[i], std::ofstream::out);
+          output = new std::ofstream(argv[i], std::ofstream::out);
       } else if (s == 0) {
         if (std::string("-") == argv[i])
-          in = NULL;
+          input = stdin;
         else
-          in = argv[i];
+          input = fopen(argv[i], "r");
       }
       s = 0;
     }
   }
-  if (in != NULL) freopen(in, "r", stdin);
 }
 }  // namespace syc::config

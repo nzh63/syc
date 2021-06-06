@@ -17,10 +17,6 @@
  */
 #include "ir/optimize/passes/optimize_phi_var.h"
 
-#include <list>
-#include <set>
-#include <unordered_map>
-
 #include "assembly/generate/context.h"
 #include "config.h"
 #include "ir/ir.h"

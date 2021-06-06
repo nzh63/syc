@@ -25,7 +25,8 @@ extern int optimize_level;
 extern bool print_ast;
 extern bool print_ir;
 extern bool print_log;
-extern std::ostream* out;
+extern FILE* input;
+extern std::ostream* output;
 
 void parse_arg(int argc, char** argv);
 }  // namespace syc::config

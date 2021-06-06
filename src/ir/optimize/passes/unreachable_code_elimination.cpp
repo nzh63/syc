@@ -17,10 +17,6 @@
  */
 #include "ir/optimize/passes/unreachable_code_elimination.h"
 
-#include <list>
-#include <set>
-#include <unordered_map>
-
 #include "config.h"
 #include "ir/ir.h"
 

@@ -16,16 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
-#include <algorithm>
 #include <array>
 #include <bitset>
-#include <cassert>
-#include <cmath>
-#include <cstdint>
-#include <exception>
-#include <functional>
-#include <queue>
-#include <sstream>
+#include <ostream>
 #include <string>
 #include <unordered_map>
 

@@ -21,7 +21,6 @@
 #include "assembly/generate/generate.h"
 #include "assembly/optimize/optimize.h"
 #include "ast/generate/generate.h"
-#include "ast/node.h"
 #include "config.h"
 #include "ir/generate/generate.h"
 #include "ir/optimize/optimize.h"
@@ -30,7 +29,7 @@ int main(int argc, char** argv) {
   using namespace syc;
   config::parse_arg(argc, argv);
 
-  auto* root = syc::ast::generate();
+  auto* root = syc::ast::generate(config::input);
   if (config::print_ast) root->print();
 
   auto ir = syc::ir::generate(root);
@@ -47,10 +46,10 @@ int main(int argc, char** argv) {
     syc::assembly::generate(ir, buffer);
   }
   if (config::optimize_level > 0) {
-    syc::assembly::optimize(buffer, *config::out);
+    syc::assembly::optimize(buffer, *config::output);
   } else {
-    *config::out << buffer.str();
+    *config::output << buffer.str();
   }
 
-  if (config::out != &std::cout) delete config::out;
+  if (config::output != &std::cout) delete config::output;
 };

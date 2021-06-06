@@ -19,9 +19,9 @@
 
 #include <cassert>
 #include <cstring>
-#include <fstream>
-#include <iostream>
+#include <istream>
 #include <list>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <vector>

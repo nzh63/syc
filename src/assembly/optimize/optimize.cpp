@@ -17,7 +17,8 @@
  */
 #include "assembly/optimize/optimize.h"
 
-#include <iostream>
+#include <istream>
+#include <ostream>
 #include <sstream>
 
 #include "assembly/optimize/passes.h"

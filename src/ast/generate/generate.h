@@ -17,9 +17,11 @@
  */
 #pragma once
 
+#include <cstdlib>
+
 #include "ast/node.h"
 
 namespace syc::ast {
 extern syc::ast::node::Root* root;
-syc::ast::node::Root* generate();
-}
+syc::ast::node::Root* generate(FILE* input = stdin);
+}  // namespace syc::ast

@@ -17,6 +17,10 @@
  */
 #include "assembly/generate/context.h"
 
+#include <algorithm>
+#include <cassert>
+#include <exception>
+
 namespace syc::assembly {
 using namespace std;
 Context::Context(ir::IRList* irs, ir::IRList::iterator function_begin_it,

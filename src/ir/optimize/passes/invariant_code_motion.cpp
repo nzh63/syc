@@ -17,9 +17,7 @@
  */
 #include "ir/optimize/passes/invariant_code_motion.h"
 
-#include <list>
 #include <set>
-#include <unordered_map>
 
 #include "config.h"
 #include "ir/ir.h"

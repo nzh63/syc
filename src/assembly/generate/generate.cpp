@@ -16,17 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <algorithm>
-#include <array>
 #include <bitset>
 #include <cassert>
 #include <cmath>
-#include <cstdint>
-#include <exception>
-#include <functional>
-#include <queue>
-#include <sstream>
 #include <string>
-#include <unordered_map>
 
 #include "assembly/generate/context.h"
 #include "ast/node.h"

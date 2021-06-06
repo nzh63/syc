@@ -17,13 +17,10 @@
  */
 #include "ir/optimize/passes/local_common_subexpression_elimination.h"
 
-#include <list>
-#include <set>
-#include <unordered_map>
-
 #include "assembly/generate/context.h"
 #include "config.h"
 #include "ir/ir.h"
+#include "set"
 
 namespace syc::ir::passes {
 namespace {

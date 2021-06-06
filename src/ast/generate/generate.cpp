@@ -20,10 +20,12 @@
 extern int yyparse();
 extern int yylex_destroy();
 extern void yyset_lineno(int _line_number);
+void yyset_in(FILE* _in_str);
 
 namespace syc::ast {
 syc::ast::node::Root* root = nullptr;
-syc::ast::node::Root* generate() {
+syc::ast::node::Root* generate(FILE* input) {
+  yyset_in(input);
   yyset_lineno(1);
   yyparse();
   yylex_destroy();
