@@ -519,7 +519,7 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
             << stack_size[0] + stack_size[1] + stack_size[2] + stack_size[3]
             << endl;
       }
-      out << "    MOV PC, LR" << endl;
+      out << "    MOV pc, lr" << endl;
     }
 
     else if (ir.op_code == ir::OpCode::LABEL) {

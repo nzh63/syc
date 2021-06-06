@@ -27,9 +27,6 @@ process.on('exit', () => {
 process.on('SIGINT', () => {
     process.exit();
 });
-process.on('exit', () => {
-    fs.rmdirSync(TMP_DIR, { recursive: true });
-});
 
 async function doTest(path, name, opt = '-O0') {
     const exec = promisify(child_process.exec);
@@ -79,7 +76,6 @@ async function doTest(path, name, opt = '-O0') {
 (async function () {
     const tasks = [];
     const works = [];
-    let passCount = 0, failCount = 0;
     const dir = fs.readdirSync(TEST_PATH);
     for (const filePath of dir) {
         if (!/\.sy$/.test(filePath)) continue;

@@ -27,7 +27,9 @@ using namespace std;
 namespace {
 void _optimize(istream& in, ostream& out) {
   using namespace syc::assembly::passes;
-  peephole(in, out);
+  std::stringstream buffer;
+  peephole(in, buffer);
+  reorder(buffer, out);
 }
 }  // namespace
 

@@ -17,5 +17,9 @@
  */
 #pragma once
 
-#include "assembly/optimize/passes/peephole.h"
-#include "assembly/optimize/passes/reorder.h"
+#include <istream>
+#include <ostream>
+
+namespace syc::assembly::passes {
+void reorder(std::istream& in, std::ostream& out);
+}  // namespace syc::assembly::passes
