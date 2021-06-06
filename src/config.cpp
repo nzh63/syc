@@ -30,6 +30,12 @@ bool print_log = false;
 
 void parse_arg(int argc, char** argv) {
   yydebug = 0;
+  optimize_level = 0;
+  input = stdin;
+  output = &std::cout;
+  print_ast = false;
+  print_ir = false;
+  print_log = false;
   int s = 0;
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] == '-') {
