@@ -458,13 +458,22 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
         ctx.store_to_stack_offset("r" + to_string(op3), offset, out);
       } else {
         bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name);
-        int op1 = 11;
-        int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 12;
-        if (!op2_in_reg) ctx.load("r" + to_string(op2), ir.op2, out);
+        int op1 = 12;
+        int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 11;
+        bool offset_is_small =
+            ir.op2.is_imm() && ir.op2.value >= 0 && ir.op2.value < 256;
+
+        if (!op2_in_reg && !offset_is_small)
+          ctx.load("r" + to_string(op2), ir.op2, out);
         ctx.load("r" + to_string(op1), ir.op1, out);
-        out << "    ADD r12, r" << op1 << ", r" << op2 << endl;
+        if (!offset_is_small)
+          out << "    ADD r12, r" << op1 << ", r" << op2 << endl;
         if (!op3_in_reg) ctx.load("r" + to_string(op3), ir.op3, out);
-        out << "    STR r" << op3 << ", [r12]" << endl;
+        out << "    STR r" << op3 << ", ["
+            << (offset_is_small
+                    ? "r" + to_string(op1) + ",#" + to_string(ir.op2.value)
+                    : "r12")
+            << "]" << endl;
       }
     }
     else if (ir.op_code == ir::OpCode::LOAD) {
@@ -480,13 +489,21 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
         }
       } else {
         bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name);
-        int op1 = 11;
-        int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 12;
+        int op1 = 12;
+        int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 11;
+        bool offset_is_small =
+            ir.op2.is_imm() && ir.op2.value >= 0 && ir.op2.value < 256;
 
-        if (!op2_in_reg) ctx.load("r" + to_string(op2), ir.op2, out);
+        if (!op2_in_reg && !offset_is_small)
+          ctx.load("r" + to_string(op2), ir.op2, out);
         ctx.load("r" + to_string(op1), ir.op1, out);
-        out << "    ADD r12, r" << op1 << ", r" << op2 << endl;
-        out << "    LDR r" << dest << ", [r12]" << endl;
+        if (!offset_is_small)
+          out << "    ADD r12, r" << op1 << ", r" << op2 << endl;
+        out << "    LDR r" << dest << ", ["
+            << (offset_is_small
+                    ? "r" + to_string(op1) + ",#" + to_string(ir.op2.value)
+                    : "r12")
+            << "]" << endl;
         if (!dest_in_reg) {
           ctx.store_to_stack("r" + to_string(dest), ir.dest, out);
         }
