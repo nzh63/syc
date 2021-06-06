@@ -15,36 +15,31 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "ir/optimize/optimize.h"
+#include "ir/optimize/passes/unreachable_code_elimination.h"
 
 #include <list>
 #include <set>
 #include <unordered_map>
 
-#include "assembly/generate/context.h"
 #include "config.h"
 #include "ir/ir.h"
-#include "ir/optimize/passes.h"
 
-namespace syc::ir {
-void optimize(IRList &ir) {
-  using namespace syc::ir::passes;
-  for (int i = 0; i < 2; i++) {
-    local_common_subexpression_elimination(ir);
-    local_common_constexpr_function_elimination(ir);
-    optimize_phi_var(ir);
-    dead_code_elimination(ir);
-    unreachable_code_elimination(ir);
+namespace syc::ir::passes {
+void unreachable_code_elimination(IRList &ir) {
+  for (auto it = ir.begin(); it != ir.end(); it++) {
+    if (it->op_code == OpCode::RET || it->op_code == OpCode::JMP) {
+      for (auto next = std::next(it); next != ir.end();) {
+        if (next->op_code != OpCode::LABEL &&
+            next->op_code != OpCode::FUNCTION_END) {
+          if (next->op_code != OpCode::NOOP && next->op_code != OpCode::INFO)
+            next = ir.erase(next);
+          else
+            next++;
+        } else {
+          break;
+        }
+      }
+    }
   }
 }
-
-void optimize_loop_ir(IRList &ir_before, IRList &ir_cond, IRList &ir_jmp,
-                      IRList &ir_do, IRList &ir_continue) {
-  using namespace syc::ir::passes;
-  if (config::optimize_level > 0) {
-    while (loop_invariant_code_motion(ir_before, ir_cond, ir_jmp, ir_do,
-                                      ir_continue))
-      ;
-  }
-}
-}  // namespace syc::ir
+}  // namespace syc::ir::passes

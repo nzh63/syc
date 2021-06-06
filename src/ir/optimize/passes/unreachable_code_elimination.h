@@ -16,10 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include "ir/ir.h"
 
-#include "ir/optimize/passes/dead_code_elimination.h"
-#include "ir/optimize/passes/invariant_code_motion.h"
-#include "ir/optimize/passes/local_common_constexpr_function_elimination.h"
-#include "ir/optimize/passes/local_common_subexpression_elimination.h"
-#include "ir/optimize/passes/optimize_phi_var.h"
-#include "ir/optimize/passes/unreachable_code_elimination.h"
+namespace syc::ir::passes {
+void unreachable_code_elimination(IRList &ir);
+}  // namespace syc::ir::passes
