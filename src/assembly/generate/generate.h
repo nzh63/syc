@@ -17,9 +17,9 @@
  */
 #pragma once
 
-#include "ir.h"
+#include "ir/ir.h"
 
-namespace SYC {
-void generate_asm(IRList& irs, std::ostream& out);
-void generate_asm(IRList& irs, std::ostream& out, std::ostream& log_out);
-}  // namespace SYC
+namespace syc::assembly {
+void generate(ir::IRList& irs, std::ostream& out);
+void generate(ir::IRList& irs, std::ostream& out, std::ostream& log_out);
+}  // namespace syc::assembly

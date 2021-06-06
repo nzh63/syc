@@ -15,9 +15,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#pragma once
-#include <istream>
+#include "ir/generate/generate.h"
 
-namespace SYC {
-void optimize_asm(std::istream& in, std::ostream& out);
-}  // namespace SYC
+namespace syc::ir {
+IRList generate(syc::ast::node::Root* root) {
+  ir::Context ctx;
+  IRList ir;
+  root->generate_ir(ctx, ir);
+  return ir;
+}
+}  // namespace syc::ir

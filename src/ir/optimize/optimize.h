@@ -16,16 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
-#include <cstdio>
-#include <fstream>
-#include <iostream>
+#include "ir/ir.h"
 
-namespace syc::config {
-extern int optimize_level;
-extern bool print_ast;
-extern bool print_ir;
-extern bool print_log;
-extern std::ostream* out;
+namespace syc::ir {
+void optimize(IRList &ir);
 
-void parse_arg(int argc, char** argv);
-}  // namespace syc::config
+void optimize_loop_ir(IRList &ir_before, IRList &ir_cond, IRList &ir_jmp,
+                      IRList &ir_do, IRList &ir_continue);
+}  // namespace syc::ir

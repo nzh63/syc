@@ -15,16 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "optimize_asm.h"
+#include "assembly/optimize/passes/peephole.h"
 
-#include <fstream>
 #include <iostream>
-#include <list>
 #include <sstream>
 #include <string>
 #include <vector>
-using namespace std;
 
+#include "config.h"
+
+using namespace std;
 namespace {
 std::string opt_asm1(std::string line1) {
   std::vector<string> temp1;
@@ -102,8 +102,8 @@ bool opt_asm2(std::string line1, std::string line2, std::string& tar_line,
 }
 }  // namespace
 
-namespace SYC {
-void optimize_asm(istream& in, ostream& out) {
+namespace syc::assembly::passes {
+void peephole(std::istream& in, std::ostream& out) {
   string line1;
   string line1_orin;
   string line0;
@@ -146,4 +146,4 @@ void optimize_asm(istream& in, ostream& out) {
     out << line0 << std::endl;
   }
 }
-}  // namespace SYC
+}  // namespace syc::assembly::passes

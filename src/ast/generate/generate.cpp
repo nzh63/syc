@@ -15,17 +15,18 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#pragma once
-#include <cstdio>
-#include <fstream>
-#include <iostream>
+#include "ast/generate/generate.h"
 
-namespace syc::config {
-extern int optimize_level;
-extern bool print_ast;
-extern bool print_ir;
-extern bool print_log;
-extern std::ostream* out;
+extern int yyparse();
+extern int yylex_destroy();
+extern void yyset_lineno(int _line_number);
 
-void parse_arg(int argc, char** argv);
-}  // namespace syc::config
+namespace syc::ast {
+syc::ast::node::Root* root = nullptr;
+syc::ast::node::Root* generate() {
+  yyset_lineno(1);
+  yyparse();
+  yylex_destroy();
+  return root;
+}
+}  // namespace syc::ast

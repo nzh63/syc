@@ -15,9 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "node.h"
+#include "ast/node.h"
 
-namespace SYC::Node {
+namespace syc::ast::node {
 BaseNode::~BaseNode() {}
 void BaseNode::print(int indentation, bool end, std::ostream& out) {
   this->print_indentation(indentation, end, out);
@@ -292,4 +292,4 @@ void Root::print(int indentation, bool end, std::ostream& out) {
   for (auto i = body.begin(); i != body.end(); i++)
     (*i)->print(indentation + 1, i + 1 == body.end(), out);
 }
-}  // namespace SYC::Node
+}  // namespace syc::ast::node

@@ -16,16 +16,5 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
-#include <cstdio>
-#include <fstream>
-#include <iostream>
 
-namespace syc::config {
-extern int optimize_level;
-extern bool print_ast;
-extern bool print_ir;
-extern bool print_log;
-extern std::ostream* out;
-
-void parse_arg(int argc, char** argv);
-}  // namespace syc::config
+#include "assembly/optimize/passes/peephole.h"

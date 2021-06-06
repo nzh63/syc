@@ -16,11 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
-#include "ir.h"
+#include "ir/ir.h"
 
-namespace SYC {
-void optimize_ir(IRList &ir);
-
-void optimize_loop_ir(IRList &ir_before, IRList &ir_cond, IRList &ir_jmp,
-                      IRList &ir_do, IRList &ir_continue);
-}  // namespace SYC
+namespace syc::ir::passes {
+void dead_code_elimination(IRList &ir);
+}  // namespace syc::ir::passes

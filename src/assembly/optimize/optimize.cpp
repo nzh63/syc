@@ -15,17 +15,30 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#pragma once
-#include <cstdio>
-#include <fstream>
+#include "assembly/optimize/optimize.h"
+
 #include <iostream>
+#include <sstream>
 
-namespace syc::config {
-extern int optimize_level;
-extern bool print_ast;
-extern bool print_ir;
-extern bool print_log;
-extern std::ostream* out;
+#include "assembly/optimize/passes.h"
 
-void parse_arg(int argc, char** argv);
-}  // namespace syc::config
+using namespace std;
+
+namespace {
+void _optimize(istream& in, ostream& out) {
+  using namespace syc::assembly::passes;
+  peephole(in, out);
+}
+}  // namespace
+
+namespace syc::assembly {
+void optimize(istream& in, ostream& out) {
+  constexpr auto N = 3;
+  std::stringstream buffer[N];
+  _optimize(in, buffer[0]);
+  for (int i = 0; i < N - 1; i++) {
+    _optimize(buffer[i], buffer[i + 1]);
+  }
+  _optimize(buffer[N - 1], out);
+}
+}  // namespace syc::assembly

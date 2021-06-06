@@ -23,7 +23,9 @@
 #include <utility>
 #include <vector>
 
-namespace SYC {
+#include "ir/ir.h"
+
+namespace syc::ir {
 class VarInfo {
  public:
   std::vector<int> shape;
@@ -42,12 +44,10 @@ class ConstInfo {
   ConstInfo(int value);
 };
 
-class ContextIR {
+class Context {
  public:
+  Context();
   unsigned id = 1;
-
- public:
-  ContextIR();
   unsigned get_id();
 
   using SymbolTable = std::vector<std::unordered_map<std::string, VarInfo>>;
@@ -80,4 +80,4 @@ class ContextIR {
       loop_break_phi_move;
   std::stack<std::vector<std::string>> loop_var{};
 };
-}  // namespace SYC
+}  // namespace syc::ir

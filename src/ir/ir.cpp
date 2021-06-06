@@ -15,183 +15,179 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "ir.h"
+#include "ir/ir.h"
 
-namespace SYC {
-IR::OpName::OpName() : type(IR::OpName::Type::Null) {}
-IR::OpName::OpName(std::string name)
-    : type(IR::OpName::Type::Var), name(name) {}
-IR::OpName::OpName(int value) : type(IR::OpName::Type::Imm), value(value) {}
-bool IR::OpName::is_var() const { return this->type == IR::OpName::Type::Var; }
-bool IR::OpName::is_imm() const { return this->type == IR::OpName::Type::Imm; }
-bool IR::OpName::is_null() const {
-  return this->type == IR::OpName::Type::Null;
-}
+namespace syc::ir {
+OpName::OpName() : type(OpName::Type::Null) {}
+OpName::OpName(std::string name) : type(OpName::Type::Var), name(name) {}
+OpName::OpName(int value) : type(OpName::Type::Imm), value(value) {}
+bool OpName::is_var() const { return this->type == OpName::Type::Var; }
+bool OpName::is_imm() const { return this->type == OpName::Type::Imm; }
+bool OpName::is_null() const { return this->type == OpName::Type::Null; }
 
-IR::IR(OpCode op_code, IR::OpName dest, IR::OpName op1, IR::OpName op2,
-       IR::OpName op3, std::string label)
+IR::IR(OpCode op_code, OpName dest, OpName op1, OpName op2, OpName op3,
+       std::string label)
     : op_code(op_code),
       dest(dest),
       op1(op1),
       op2(op2),
       op3(op3),
       label(label) {}
-IR::IR(OpCode op_code, IR::OpName dest, IR::OpName op1, IR::OpName op2,
-       std::string label)
+IR::IR(OpCode op_code, OpName dest, OpName op1, OpName op2, std::string label)
     : op_code(op_code),
       dest(dest),
       op1(op1),
       op2(op2),
-      op3(IR::OpName()),
+      op3(OpName()),
       label(label) {}
-IR::IR(OpCode op_code, IR::OpName dest, IR::OpName op1, std::string label)
+IR::IR(OpCode op_code, OpName dest, OpName op1, std::string label)
     : op_code(op_code),
       dest(dest),
       op1(op1),
-      op2(IR::OpName()),
-      op3(IR::OpName()),
+      op2(OpName()),
+      op3(OpName()),
       label(label) {}
-IR::IR(OpCode op_code, IR::OpName dest, std::string label)
+IR::IR(OpCode op_code, OpName dest, std::string label)
     : op_code(op_code),
       dest(dest),
-      op1(IR::OpName()),
-      op2(IR::OpName()),
-      op3(IR::OpName()),
+      op1(OpName()),
+      op2(OpName()),
+      op3(OpName()),
       label(label) {}
 IR::IR(OpCode op_code, std::string label)
     : op_code(op_code),
-      dest(IR::OpName()),
-      op1(IR::OpName()),
-      op2(IR::OpName()),
-      op3(IR::OpName()),
+      dest(OpName()),
+      op1(OpName()),
+      op2(OpName()),
+      op3(OpName()),
       label(label) {}
 void IR::print(std::ostream& out, bool verbos) const {
   switch (this->op_code) {
-    case IR::OpCode::MALLOC_IN_STACK:
+    case OpCode::MALLOC_IN_STACK:
       out << "MALLOC_IN_STACK"
           << std::string(16 - std::string("MALLOC_IN_STACK").size(), ' ');
       break;
-    case IR::OpCode::MOV:
+    case OpCode::MOV:
       out << "MOV" << std::string(16 - std::string("MOV").size(), ' ');
       break;
-    case IR::OpCode::ADD:
+    case OpCode::ADD:
       out << "ADD" << std::string(16 - std::string("ADD").size(), ' ');
       break;
-    case IR::OpCode::SUB:
+    case OpCode::SUB:
       out << "SUB" << std::string(16 - std::string("SUB").size(), ' ');
       break;
-    case IR::OpCode::IMUL:
+    case OpCode::IMUL:
       out << "IMUL" << std::string(16 - std::string("IMUL").size(), ' ');
       break;
-    case IR::OpCode::IDIV:
+    case OpCode::IDIV:
       out << "IDIV" << std::string(16 - std::string("IDIV").size(), ' ');
       break;
-    case IR::OpCode::MOD:
+    case OpCode::MOD:
       out << "MOD" << std::string(16 - std::string("MOD").size(), ' ');
       break;
-    case IR::OpCode::SET_ARG:
+    case OpCode::SET_ARG:
       out << "SET_ARG" << std::string(16 - std::string("SET_ARG").size(), ' ');
       break;
-    case IR::OpCode::CALL:
+    case OpCode::CALL:
       out << "CALL" << std::string(16 - std::string("CALL").size(), ' ');
       break;
-    case IR::OpCode::CMP:
+    case OpCode::CMP:
       out << "CMP" << std::string(16 - std::string("CMP").size(), ' ');
       break;
-    case IR::OpCode::JMP:
+    case OpCode::JMP:
       out << "JMP" << std::string(16 - std::string("JMP").size(), ' ');
       break;
-    case IR::OpCode::JEQ:
+    case OpCode::JEQ:
       out << "JEQ" << std::string(16 - std::string("JEQ").size(), ' ');
       break;
-    case IR::OpCode::JNE:
+    case OpCode::JNE:
       out << "JNE" << std::string(16 - std::string("JNE").size(), ' ');
       break;
-    case IR::OpCode::JLE:
+    case OpCode::JLE:
       out << "JLE" << std::string(16 - std::string("JLE").size(), ' ');
       break;
-    case IR::OpCode::JLT:
+    case OpCode::JLT:
       out << "JLT" << std::string(16 - std::string("JLT").size(), ' ');
       break;
-    case IR::OpCode::JGE:
+    case OpCode::JGE:
       out << "JGE" << std::string(16 - std::string("JGE").size(), ' ');
       break;
-    case IR::OpCode::JGT:
+    case OpCode::JGT:
       out << "JGT" << std::string(16 - std::string("JGT").size(), ' ');
       break;
-    case IR::OpCode::MOVEQ:
+    case OpCode::MOVEQ:
       out << "MOVEQ" << std::string(16 - std::string("MOVEQ").size(), ' ');
       break;
-    case IR::OpCode::MOVNE:
+    case OpCode::MOVNE:
       out << "MOVNE" << std::string(16 - std::string("MOVNE").size(), ' ');
       break;
-    case IR::OpCode::MOVLE:
+    case OpCode::MOVLE:
       out << "MOVLE" << std::string(16 - std::string("MOVLE").size(), ' ');
       break;
-    case IR::OpCode::MOVLT:
+    case OpCode::MOVLT:
       out << "MOVLT" << std::string(16 - std::string("MOVLT").size(), ' ');
       break;
-    case IR::OpCode::MOVGE:
+    case OpCode::MOVGE:
       out << "MOVGE" << std::string(16 - std::string("MOVGE").size(), ' ');
       break;
-    case IR::OpCode::MOVGT:
+    case OpCode::MOVGT:
       out << "MOVGT" << std::string(16 - std::string("MOVGT").size(), ' ');
       break;
-    case IR::OpCode::AND:
+    case OpCode::AND:
       out << "AND" << std::string(16 - std::string("AND").size(), ' ');
       break;
-    case IR::OpCode::OR:
+    case OpCode::OR:
       out << "OR" << std::string(16 - std::string("OR").size(), ' ');
       break;
-    case IR::OpCode::SAL:
+    case OpCode::SAL:
       out << "SAL" << std::string(16 - std::string("SAL").size(), ' ');
       break;
-    case IR::OpCode::SAR:
+    case OpCode::SAR:
       out << "SAR" << std::string(16 - std::string("SAR").size(), ' ');
       break;
-    case IR::OpCode::STORE:
+    case OpCode::STORE:
       out << "STORE" << std::string(16 - std::string("STORE").size(), ' ');
       break;
-    case IR::OpCode::LOAD:
+    case OpCode::LOAD:
       out << "LOAD" << std::string(16 - std::string("LOAD").size(), ' ');
       break;
-    case IR::OpCode::RET:
+    case OpCode::RET:
       out << "RET" << std::string(16 - std::string("RET").size(), ' ');
       break;
-    case IR::OpCode::LABEL:
+    case OpCode::LABEL:
       out << "LABEL" << std::string(16 - std::string("LABEL").size(), ' ');
       break;
-    case IR::OpCode::DATA_BEGIN:
+    case OpCode::DATA_BEGIN:
       out << "DATA_BEGIN"
           << std::string(16 - std::string("DATA_BEGIN").size(), ' ');
       break;
-    case IR::OpCode::DATA_SPACE:
+    case OpCode::DATA_SPACE:
       out << "DATA_SPACE"
           << std::string(16 - std::string("DATA_SPACE").size(), ' ');
       break;
-    case IR::OpCode::DATA_WORD:
+    case OpCode::DATA_WORD:
       out << "DATA_WORD"
           << std::string(16 - std::string("DATA_WORD").size(), ' ');
       break;
-    case IR::OpCode::DATA_END:
+    case OpCode::DATA_END:
       out << "DATA_END"
           << std::string(16 - std::string("DATA_END").size(), ' ');
       break;
-    case IR::OpCode::FUNCTION_BEGIN:
+    case OpCode::FUNCTION_BEGIN:
       out << "FUNCTION_BEGIN"
           << std::string(16 - std::string("FUNCTION_BEGIN").size(), ' ');
       break;
-    case IR::OpCode::FUNCTION_END:
+    case OpCode::FUNCTION_END:
       out << "FUNCTION_END"
           << std::string(16 - std::string("FUNCTION_END").size(), ' ');
       break;
-    case IR::OpCode::PHI_MOV:
+    case OpCode::PHI_MOV:
       out << "PHI_MOV" << std::string(16 - std::string("PHI_MOV").size(), ' ');
       break;
-    case IR::OpCode::NOOP:
+    case OpCode::NOOP:
       out << "NOOP" << std::string(16 - std::string("NOOP").size(), ' ');
       break;
-    case IR::OpCode::INFO:
+    case OpCode::INFO:
       out << "INFO" << std::string(16 - std::string("INFO").size(), ' ');
       break;
   }
@@ -210,4 +206,4 @@ void IR::print(std::ostream& out, bool verbos) const {
   out << this->label;
   out << std::endl;
 }
-}  // namespace SYC
+}  // namespace syc::ir

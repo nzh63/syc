@@ -18,44 +18,39 @@
 #include <iostream>
 #include <sstream>
 
+#include "assembly/generate/generate.h"
+#include "assembly/optimize/optimize.h"
+#include "ast/generate/generate.h"
+#include "ast/node.h"
 #include "config.h"
-#include "generate_asm.h"
-#include "node.h"
-#include "optimize_asm.h"
-#include "optimize_ir.h"
-
-SYC::Node::Root* root;
-extern int yyparse();
-extern int yylex_destroy();
-extern void yyset_lineno(int _line_number);
-
-constexpr auto N = 3;
+#include "ir/generate/generate.h"
+#include "ir/optimize/optimize.h"
 
 int main(int argc, char** argv) {
-  using namespace SYC;
+  using namespace syc;
   config::parse_arg(argc, argv);
-  yyset_lineno(1);
-  yyparse();
-  yylex_destroy();
+
+  auto* root = syc::ast::generate();
   if (config::print_ast) root->print();
-  ContextIR ctx;
-  IRList ir;
-  root->generate_ir(ctx, ir);
-  if (config::optimize_level > 0) optimize_ir(ir);
+
+  auto ir = syc::ir::generate(root);
+  if (config::optimize_level > 0) {
+    syc::ir::optimize(ir);
+  }
   if (config::print_ir)
     for (auto& i : ir) i.print(std::cerr, true);
-  std::stringstream buffer[N];
-  if (config::print_log)
-    generate_asm(ir, buffer[0], buffer[0]);
-  else
-    generate_asm(ir, buffer[0]);
-  if (config::optimize_level > 0) {
-    for (int i = 0; i < N - 1; i++) {
-      optimize_asm(buffer[i], buffer[i + 1]);
-    }
-    optimize_asm(buffer[N - 1], *config::out);
+
+  std::stringstream buffer;
+  if (config::print_log) {
+    syc::assembly::generate(ir, buffer, buffer);
   } else {
-    *config::out << buffer[0].str();
+    syc::assembly::generate(ir, buffer);
   }
+  if (config::optimize_level > 0) {
+    syc::assembly::optimize(buffer, *config::out);
+  } else {
+    *config::out << buffer.str();
+  }
+
   if (config::out != &std::cout) delete config::out;
 };

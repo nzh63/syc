@@ -17,7 +17,7 @@
  */
 %{
 #include <string>
-#include "node.h"
+#include "ast/node.h"
 #include "parser.hpp"
 
 #define SAVE_TOKEN  yylval.string = new std::string(yytext, yyleng)

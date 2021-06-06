@@ -29,13 +29,13 @@
 #include <string>
 #include <unordered_map>
 
+#include "ast/node.h"
 #include "config.h"
-#include "context_ir.h"
-#include "ir.h"
-#include "node.h"
+#include "ir/generate/context.h"
+#include "ir/ir.h"
 
-namespace SYC {
-class ContextASM {
+namespace syc::assembly {
+class Context {
  private:
   int time = 0;
 
@@ -44,12 +44,12 @@ class ContextASM {
 
   std::ostream& log_out;
 
-  IRList* irs;
+  ir::IRList* irs;
   std::array<int, 4> stack_size{6 * 4, 4, 0, 0};
-  IRList::iterator function_begin_it;
+  ir::IRList::iterator function_begin_it;
   std::unordered_map<std::string, int> stack_offset_map;
   // 获取每一条it对应时间戳
-  std::unordered_map<IR*, int> ir_to_time;
+  std::unordered_map<ir::IR*, int> ir_to_time;
   // var定义的时间戳
   std::unordered_map<std::string, int> var_define_timestamp;
   std::multimap<int, std::string> var_define_timestamp_heap;
@@ -69,16 +69,16 @@ class ContextASM {
 
   bool has_function_call = false;
 
-  ContextASM(IRList* irs, IRList::iterator function_begin_it,
-             std::ostream& log_out = std::cerr);
+  Context(ir::IRList* irs, ir::IRList::iterator function_begin_it,
+          std::ostream& log_out = std::cerr);
 
   static std::string rename(std::string name);
 
   int resolve_stack_offset(std::string name);
 
-  void set_ir_timestamp(IR& cur);
-  void set_var_latest_use_timestamp(IR& cur);
-  void set_var_define_timestamp(IR& cur);
+  void set_ir_timestamp(ir::IR& cur);
+  void set_var_latest_use_timestamp(ir::IR& cur);
+  void set_var_define_timestamp(ir::IR& cur);
 
   void expire_old_intervals(int cur_time);
 
@@ -119,7 +119,7 @@ class ContextASM {
   // 加载操作
   void load_imm(std::string reg, int value, std::ostream& out);
 
-  void load(std::string reg, IR::OpName op, std::ostream& out);
+  void load(std::string reg, ir::OpName op, std::ostream& out);
 
   void store_to_stack_offset(std::string reg, int offset, std::ostream& out,
                              std::string op = "STR");
@@ -127,7 +127,7 @@ class ContextASM {
   void load_from_stack_offset(std::string reg, int offset, std::ostream& out,
                               std::string op = "LDR");
 
-  void store_to_stack(std::string reg, IR::OpName op, std::ostream& out,
+  void store_to_stack(std::string reg, ir::OpName op, std::ostream& out,
                       std::string op_code = "STR");
 };
-}  // namespace SYC
+}  // namespace syc::assembly
