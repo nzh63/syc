@@ -1,6 +1,6 @@
 /*
  * syc, a compiler for SysY
- * Copyright (C) 2020  nzh63, skywf21
+ * Copyright (C) 2020-2021  nzh63, skywf21
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
