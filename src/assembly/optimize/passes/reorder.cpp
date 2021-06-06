@@ -222,6 +222,7 @@ AsmInst Create_AsmInst(std::string line1) {
     return AsmInst(opcode, token, true);
   } else if (isstr) {  // 如果是str 则第一个是op1,第二个是dest
     return AsmInst(opcode, cisu[1], cisu[0]);
+
   } else if (opcode.starts_with("#")) {  // 注释
     return AsmInst(opcode, AsmOpName());
   } else {
@@ -239,7 +240,7 @@ AsmInst Create_AsmInst(std::string line1) {
         return AsmInst(opcode, cisu[0], cisu[1], cisu[2], cisu[3]);
         break;
       default:
-        throw std::runtime_error("too many argument /" + opcode + "/" + line1);
+        throw std::runtime_error("too many argument");
         break;
     }
   }
