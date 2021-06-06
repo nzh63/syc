@@ -21,5 +21,9 @@
 #include <ostream>
 
 namespace syc::assembly::passes {
+// 使用LIS算法对指令进行重排
+// 请参考论文：X. Shi and P. Guo, "A Novel Lightweight Instruction Scheduling
+// Algorithm for Just-in-Time Compiler," 2009 WRI World Congress on Software
+// Engineering, 2009, pp. 73-77, doi: 10.1109/WCSE.2009.39.
 void reorder(std::istream& in, std::ostream& out);
 }  // namespace syc::assembly::passes

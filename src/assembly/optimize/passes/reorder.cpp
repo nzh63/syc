@@ -222,6 +222,9 @@ AsmInst Create_AsmInst(std::string line1) {
     return AsmInst(opcode, token, true);
   } else if (isstr) {  // 如果是str 则第一个是op1,第二个是dest
     return AsmInst(opcode, cisu[1], cisu[0]);
+
+  } else if (opcode.starts_with("#")) {  // 注释
+    return AsmInst(opcode, AsmOpName());
   } else {
     switch (count) {
       case 2:
@@ -269,14 +272,8 @@ int Calcu_Correlation(AsmInst inst1, AsmInst inst2) {
     // CMP r6, r12
     else if (inst1.op_code == "ADD" || inst1.op_code == "SUB") {
       return 2;
-    }
-    // 特殊情况1.6 smull指令   (直接当成跳转语句，不加以优化了)
-    // mov r3, r6
-    // smull r12, r2, r3, r1
-    // 加载的是r12(dest)  / r2,r3,r1(op)  => 实际上 r12,r2(dest)/ r3,r1(op)
-    else if (inst2.op_code == "SMULL") {
-      assert(false);
-      return 0;
+    } else if (inst1.op_code == "MUL") {
+      return 3;
     }
     // 相关情况9.9：写后读相关
     // 这是最后一个，相当于最长前缀匹配

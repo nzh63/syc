@@ -19,5 +19,12 @@
 #include "ir/ir.h"
 
 namespace syc::ir::passes {
+// 移除不必要的PHI_MOV指令
+// 如：
+// MOV %42, some_thing
+// PHI_MOV %43, %42     # %42 only be used here
+// =>
+// MOV %43, some_thing  # rename %42 to %43
+// PHI_MOV %43, %43
 void optimize_phi_var(IRList &ir);
 }  // namespace syc::ir::passes
