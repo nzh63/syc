@@ -171,9 +171,9 @@ int main(){
                     this.curLevel = 1;
                     const filename = 'input' + Math.random();
                     Module.FS.createDataFile('/', filename, this.code, 1, 1, 1);
-                    args = ['/' + filename, '-print_ast', '-print_ir'];
+                    args = ['/' + filename, '-print_ast', '-print_ir', '-print_log'];
                     if (this.optimization) args.push('-O2');
-                    else args.push('-print_log', '-O0');
+                    else args.push('-O0');
                     Module.callMain(args);
                     Module.FS.unlink('/' + filename);
                 },

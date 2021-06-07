@@ -704,7 +704,7 @@ void reorder(std::istream& in, std::ostream& out) {
           (token == "MOV" && line1.find("pc") != string::npos)) {
         blk_linenum.emplace_back(linenum);
         linenum++;
-      } else {
+      } else if (!line1.starts_with("#")) {
         linenum++;
       }
     }
@@ -730,8 +730,13 @@ void reorder(std::istream& in, std::ostream& out) {
     tail = optblk_linenum[optnum + 1];
     int** blk_array = nullptr;
     int temp_inst_blk = 0;  // 在指令vector中的数目
+    string comment;
     while (getline(in2, line1)) {
       // 第二遍扫描，某一块指令数目>5才会去优化
+      if (line1.starts_with("#")) {
+        comment += line1 + '\n';
+        continue;
+      }
       if (linenum < head || (linenum == head)) {
         out << line1 << std::endl;
         linenum++;
@@ -750,8 +755,9 @@ void reorder(std::istream& in, std::ostream& out) {
           }
         }
         AsmInst temp_AsmInst = Create_AsmInst(line1);
-        LineBlock.emplace_back(line1);
+        LineBlock.emplace_back(comment + line1);
         AsmBlock.emplace_back(temp_AsmInst);
+        comment.clear();
         linenum++;
       } else if ((linenum > (head + 1) && (linenum < tail))) {
         AsmInst temp_AsmInst = Create_AsmInst(line1);
@@ -770,8 +776,9 @@ void reorder(std::istream& in, std::ostream& out) {
         // std::cout<< "加入优化框" << std::endl;
         // std::cout<< line1 << std::endl;
 
-        LineBlock.emplace_back(line1);
+        LineBlock.emplace_back(comment + line1);
         AsmBlock.emplace_back(temp_AsmInst);
+        comment.clear();
         linenum++;
       } else if (linenum == tail) {
         // 当Linenum = tail数目的时候,通过矩阵算出四个的值
@@ -807,9 +814,11 @@ void reorder(std::istream& in, std::ostream& out) {
         }
 
         linenum++;
-        out << line1 << std::endl;
+        out << comment << line1 << std::endl;
+        comment.clear();
       } else if (linenum > tail) {  // 到最后了，全部输出,最后一块就不优化了
-        out << line1 << std::endl;
+        out << comment << line1 << std::endl;
+        comment.clear();
         linenum++;
       } else {
         assert(false);
