@@ -41,6 +41,7 @@ class OpName {
   bool is_var() const;
   bool is_imm() const;
   bool is_null() const;
+  bool operator==(const OpName& other) const;
 };
 enum class OpCode {
   MALLOC_IN_STACK,  // dest = offset(new StackArray(size op1))

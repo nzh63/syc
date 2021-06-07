@@ -17,6 +17,8 @@
  */
 #include "ir/ir.h"
 
+#include <cassert>
+
 namespace syc::ir {
 OpName::OpName() : type(OpName::Type::Null) {}
 OpName::OpName(std::string name) : type(OpName::Type::Var), name(name) {}
@@ -24,6 +26,17 @@ OpName::OpName(int value) : type(OpName::Type::Imm), value(value) {}
 bool OpName::is_var() const { return this->type == OpName::Type::Var; }
 bool OpName::is_imm() const { return this->type == OpName::Type::Imm; }
 bool OpName::is_null() const { return this->type == OpName::Type::Null; }
+bool OpName::operator==(const OpName& other) const {
+  if (this->type != other.type) return false;
+  if (this->is_var()) {
+    return this->name == other.name;
+  } else if (this->is_imm()) {
+    return this->value == other.value;
+  } else {
+    assert(this->is_null());
+    return true;
+  }
+}
 
 IR::IR(OpCode op_code, OpName dest, OpName op1, OpName op2, OpName op3,
        std::string label)
@@ -61,7 +74,7 @@ IR::IR(OpCode op_code, std::string label)
       op2(OpName()),
       op3(OpName()),
       label(label) {}
-void IR::print(std::ostream& out, bool verbos) const {
+void IR::print(std::ostream& out, bool verbose) const {
   switch (this->op_code) {
     case OpCode::MALLOC_IN_STACK:
       out << "MALLOC_IN_STACK"

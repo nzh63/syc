@@ -172,6 +172,7 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
       }
     } else if (ir.op_code == ir::OpCode::MOV ||
                ir.op_code == ir::OpCode::PHI_MOV) {
+      if (ir.dest == ir.op1) continue;
       bool dest_in_reg = ctx.var_in_reg(ir.dest.name);
       if (ir.op1.is_imm()) {
         if (dest_in_reg) {
