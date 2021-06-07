@@ -7,6 +7,7 @@
     <script src="https://cdn.bootcdn.net/ajax/libs/vue/2.6.12/vue.min.js"></script>
     <script src="https://cdn.bootcdn.net/ajax/libs/element-ui/2.15.0/index.min.js"></script>
     <link href="https://cdn.bootcdn.net/ajax/libs/element-ui/2.15.0/theme-chalk/index.min.css" rel="stylesheet">
+    <script src="https://cdn.bootcdn.net/ajax/libs/monaco-editor/0.23.0/min/vs/loader.min.js"></script>
     <style>
         .el-divider--vertical {
             height: auto;
@@ -26,6 +27,12 @@
             max-height: 100%;
             overflow: hidden;
         }
+
+        .half {
+            flex-basis: 100px;
+            flex-grow: 1;
+            overflow: auto;
+        }
     </style>
 </head>
 
@@ -40,10 +47,12 @@
             </el-header>
             <el-main>
                 <div style="display:flex;max-height:100%;">
-                    <el-input type="textarea" placeholder="Code" resize="none" style="flex-grow:1" v-model="code">
+                    <div ref="editor" v-show="editor" class="half" style="overflow: hidden;"></div>
+                    <el-input v-if="!editor" type="textarea" placeholder="Code" resize="none" class="half"
+                        v-model="code">
                     </el-input>
                     <el-divider direction="vertical"></el-divider>
-                    <div style="flex-grow:1;width:100%;overflow:auto;">
+                    <div class="half">
                         <el-collapse v-model="activeNames">
                             <el-collapse-item title="AST" name="1">
                                 <el-tree default-expand-all :data="ast"></el-tree>
@@ -156,11 +165,32 @@ int main(){
                 cur: null,
                 curLevel: 1,
                 ir: '',
+                editor: null
             },
             computed: {
                 assemblyWithoutComment() {
                     return this.assembly.replace(/^#[^\n]*\n?/msg, '');
                 }
+            },
+            mounted() {
+                require.config({ paths: { 'vs': 'https://cdn.bootcdn.net/ajax/libs/monaco-editor/0.23.0/min/vs' } });
+                window.MonacoEnvironment = {
+                    getWorkerUrl: function (workerId, label) {
+                        return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
+                            self.MonacoEnvironment = {
+                            baseUrl: 'https://cdn.bootcdn.net/ajax/libs/monaco-editor/0.23.0/min'
+                            };
+                            importScripts('https://cdn.bootcdn.net/ajax/libs/monaco-editor/0.23.0/min/vs/base/worker/workerMain.js');`
+                        )}`;
+                    }
+                };
+                require(["vs/editor/editor.main"], () => {
+                    this.editor = monaco.editor.create(this.$refs.editor, {
+                        value: this.code,
+                        language: "c",
+                        automaticLayout: true
+                    });
+                });
             },
             methods: {
                 compile() {
@@ -170,6 +200,7 @@ int main(){
                     this.cur = this.ast[0];
                     this.curLevel = 1;
                     const filename = 'input' + Math.random();
+                    this.code = this.editor?.getValue() ?? this.code;
                     Module.FS.createDataFile('/', filename, this.code, 1, 1, 1);
                     args = ['/' + filename, '-print_ast', '-print_ir', '-print_log'];
                     if (this.optimization) args.push('-O2');
