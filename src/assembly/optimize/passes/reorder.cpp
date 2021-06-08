@@ -322,16 +322,6 @@ int Calcu_Correlation(AsmInst inst1, AsmInst inst2) {
   if (inst1.op_code == "CMP" || inst2.op_code == "CMP") {
     return 0;
   }
-  // return 指令
-  if (inst2.op_code == "MOV" && inst2.dest.name == "pc") {
-    assert(false);
-    return 0;
-  }
-  // call
-  if (inst2.dest.is_var() && inst2.dest.name == "lr" && inst1.op_code == "BL") {
-    assert(false);
-    return 1;
-  }
   return -1;
 }
 

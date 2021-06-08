@@ -17,17 +17,19 @@
  */
 #include "ir/optimize/passes/local_common_subexpression_elimination.h"
 
+#include <map>
+#include <set>
+
 #include "assembly/generate/context.h"
 #include "config.h"
 #include "ir/ir.h"
-#include "set"
+
+using namespace std;
 
 namespace syc::ir::passes {
 namespace {
 struct compare_ir {
-  bool operator()(const std::pair<IR, int> &_a,
-                  const std::pair<IR, int> &_b) const {
-    const auto &a = _a.first, &b = _b.first;
+  bool operator()(const IR &a, const IR &b) const {
     if (a.op_code != b.op_code) return a.op_code < b.op_code;
 
 #define F(op1)                                                  \
@@ -46,19 +48,21 @@ struct compare_ir {
 }  // namespace
 
 void local_common_subexpression_elimination(IRList &ir) {
-  std::set<std::pair<IR, int>, compare_ir> maybe_opt;
+  std::map<IR, int, compare_ir> maybe_opt;
   std::set<std::string> mutability_var;
 
   syc::assembly::Context ctx(&ir, ir.begin());
   for (auto it = ir.begin(); it != ir.end(); it++) {
     ctx.set_ir_timestamp(*it);
   }
-
   for (auto it = ir.begin(); it != ir.end(); it++) {
-    if (it->op_code != OpCode::PHI_MOV) {
+    if (it->op_code == OpCode::PHI_MOV) {
       mutability_var.insert(it->dest.name);
     }
-    if (it->op_code != OpCode::LABEL || it->op_code != OpCode::FUNCTION_BEGIN) {
+  }
+
+  for (auto it = ir.begin(); it != ir.end(); it++) {
+    if (it->op_code == OpCode::LABEL || it->op_code == OpCode::FUNCTION_BEGIN) {
       maybe_opt.clear();
     }
     if (it->dest.is_var() && it->dest.name[0] == '%' && !it->op1.is_null() &&
@@ -68,16 +72,22 @@ void local_common_subexpression_elimination(IRList &ir) {
         it->op_code != OpCode::MOVLE &&
         it->op_code != OpCode::MALLOC_IN_STACK && it->op_code != OpCode::LOAD &&
         it->op_code != OpCode::MOV && it->op_code != OpCode::PHI_MOV) {
-      if (maybe_opt.find({*it, 0}) != maybe_opt.end()) {
-        auto opt_ir = maybe_opt.find({*it, 0})->first;
-        auto time = maybe_opt.find({*it, 0})->second;
-        if (mutability_var.find(opt_ir.dest.name) == mutability_var.end()) {
+      if (maybe_opt.find(*it) != maybe_opt.end()) {
+        auto opt_ir = maybe_opt.find(*it)->first;
+        auto time = maybe_opt.find(*it)->second;
+        if (mutability_var.find(opt_ir.dest.name) == mutability_var.end() &&
+            mutability_var.find(it->dest.name) == mutability_var.end() &&
+            (!it->op1.is_var() ||
+             mutability_var.find(it->op1.name) == mutability_var.end()) &&
+            (!it->op2.is_var() ||
+             mutability_var.find(it->op2.name) == mutability_var.end())) {
           // 避免相距太远子表达式有望延长生命周期而溢出
           if (ctx.ir_to_time[&*it] - time < 20) {
+            it->print();
+            opt_ir.print();
             IR temp(OpCode::MOV, it->dest, opt_ir.dest);
-            it = ir.erase(it);
-            it = ir.insert(it, temp);
-            it--;
+            temp.print();
+            *it = temp;
           }
         }
       }

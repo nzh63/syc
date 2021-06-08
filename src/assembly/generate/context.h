@@ -33,12 +33,16 @@ class Context {
   int time = 0;
 
  public:
-  static constexpr int reg_count = 11;
+  static constexpr int reg_count = 12;
 
   std::ostream& log_out;
 
   ir::IRList* irs;
-  std::array<int, 4> stack_size{6 * 4, 4, 0, 0};
+  // stack_size[0]: 暂未使用
+  // stack_size[1]: 保护现场 // 顺序为 r14(lr), r4, r5, ..., r11
+  // stack_size[2]: 寄存器溢出
+  // stack_size[4]: 函数调用
+  std::array<int, 4> stack_size{0, 4, 0, 0};
   ir::IRList::iterator function_begin_it;
   std::unordered_map<std::string, int> stack_offset_map;
   // 获取每一条it对应时间戳
@@ -51,9 +55,9 @@ class Context {
   std::multimap<int, std::string> var_latest_use_timestamp_heap;
 
   // 保护现场后可用的寄存器
-  std::bitset<reg_count> savable_reg = 0b11111110000;
+  std::bitset<reg_count> savable_reg = 0b111111110000;
   // 已使用的寄存器
-  std::bitset<reg_count> used_reg = 0b00000000000;
+  std::bitset<reg_count> used_reg = 0b000000000000;
 
   // 当前在寄存器中的变量极其寄存器号(active)
   std::unordered_map<std::string, int> var_to_reg = {

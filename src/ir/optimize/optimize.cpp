@@ -25,8 +25,8 @@
 namespace syc::ir {
 void optimize(IRList &ir) {
   using namespace syc::ir::passes;
-  for (int i = 0; i < 2; i++) {
-    local_common_subexpression_elimination(ir);
+  for (int i = 0; i < 5; i++) {
+    // local_common_subexpression_elimination(ir);
     local_common_constexpr_function_elimination(ir);
     optimize_phi_var(ir);
     dead_code_elimination(ir);

@@ -44,11 +44,11 @@ int Context::resolve_stack_offset(string name) {
     if (id < 4) {
       throw runtime_error(name + " is not in mem.");
     } else {
-      return stack_size[1] + stack_size[2] + stack_size[3] + (id - 4) * 4 +
-             (has_function_call ? 4 : 0);
+      return stack_size[0] + stack_size[1] + stack_size[2] + stack_size[3] +
+             (id - 4) * 4;
     }
   } else if (name == "$ra") {
-    return stack_size[1] + stack_size[2] + stack_size[3];
+    return stack_size[1] + stack_size[2] + stack_size[3] - 4;
   }
   return stack_offset_map[name] + stack_size[3];
 }
@@ -328,7 +328,7 @@ void Context::load(string reg, ir::OpName op, ostream& out) {
 void Context::store_to_stack_offset(string reg, int offset, ostream& out,
                                     string op) {
   if (!(offset > -4096 && offset < 4096)) {
-    string tmp_reg = reg == "r11" ? "r12" : "r11";
+    string tmp_reg = reg == "r14" ? "r12" : "r14";
     load_imm(tmp_reg, offset, out);
     out << "    " << op << " " << reg << ", [sp," << tmp_reg << "]" << endl;
   } else {
@@ -353,7 +353,7 @@ void Context::store_to_stack(string reg, ir::OpName op, ostream& out,
   if (op.name[0] == '%') {
     store_to_stack_offset(reg, resolve_stack_offset(op.name), out, op_code);
   } else if (op.name[0] == '@') {
-    string tmp_reg = reg == "r11" ? "r12" : "r11";
+    string tmp_reg = reg == "r14" ? "r12" : "r14";
     out << "    MOV32 " << tmp_reg << ", " << rename(op.name) << endl;
     out << "    " << op_code << " " << reg << ", [" << tmp_reg << ",#0]"
         << endl;

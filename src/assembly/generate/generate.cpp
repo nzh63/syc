@@ -30,7 +30,7 @@ using namespace std;
 
 namespace syc::assembly {
 namespace {
-constexpr bitset<Context::reg_count> non_volatile_reg = 0b11111110000;
+constexpr bitset<Context::reg_count> non_volatile_reg = 0b111111110000;
 
 void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
                            ir::IRList::iterator end, ostream& out,
@@ -58,7 +58,6 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
       break;
     }
   }
-  ctx.stack_size[0] = ctx.has_function_call ? 4 : 0;
 
   for (auto it = begin; it != end; it++) {
     log_out << "# " << ctx.ir_to_time[&*it] << " ";
@@ -157,12 +156,10 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
             << stack_size[0] + stack_size[1] + stack_size[2] + stack_size[3]
             << endl;
       }
-      if (ctx.has_function_call)
-        ctx.store_to_stack("lr", ir::OpName("$ra"), out);
+      ctx.store_to_stack("r14", ir::OpName("$ra"), out);
 
       // 保护现场
-      int offset = 4;
-      ctx.store_to_stack_offset("r11", stack_size[2] + stack_size[3], out);
+      int offset = 0;
       for (int i = 0; i < Context::reg_count; i++) {
         if (non_volatile_reg[i] != ctx.savable_reg[i]) {
           ctx.store_to_stack_offset(
@@ -203,7 +200,7 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
     bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name); \
     bool op2_is_imm =                                                 \
         ir.op2.is_imm() && (ir.op2.value >= 0 && ir.op2.value < 256); \
-    int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 11;          \
+    int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 14;          \
     int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 12;          \
     int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 12;       \
     if (!op2_in_reg && !op2_is_imm) {                                 \
@@ -229,7 +226,7 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
       bool dest_in_reg = ctx.var_in_reg(ir.dest.name);
       bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);
       bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name);
-      int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 11;
+      int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 14;
       int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 12;
       int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 12;
       if (!op2_in_reg) {
@@ -253,7 +250,7 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
     assert(ir.op2.is_imm());                                               \
     bool dest_in_reg = ctx.var_in_reg(ir.dest.name);                       \
     bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);      \
-    int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 11;               \
+    int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 14;               \
     int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 12;            \
     if (!op1_in_reg) {                                                     \
       ctx.load("r" + to_string(op1), ir.op1, out);                         \
@@ -270,7 +267,7 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
     else if (ir.op_code == ir::OpCode::IDIV) {
       if (config::optimize_level > 0 && ir.op2.is_imm()) {
         bool dest_in_reg = ctx.var_in_reg(ir.dest.name);
-        int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 11;
+        int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 14;
         bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);
         int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 0;
         if (!op1_in_reg) {
@@ -359,7 +356,7 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
       bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);
       bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name);
       int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 12;
-      int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 11;
+      int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 14;
       if (!op1_in_reg) {
         ctx.load("r" + to_string(op1), ir.op1, out);
       }
@@ -406,7 +403,7 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
       bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);
       bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name);
       int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 12;
-      int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 11;
+      int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 14;
       int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 12;
       if (!op1_in_reg) {
         ctx.load("r" + to_string(op1), ir.op1, out);
@@ -426,7 +423,7 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
       bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);
       bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name);
       int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 12;
-      int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 11;
+      int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 14;
       int dest = dest_in_reg ? ctx.var_to_reg[ir.dest.name] : 12;
       if (!op1_in_reg) {
         ctx.load("r" + to_string(op1), ir.op1, out);
@@ -444,7 +441,7 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
     else if (ir.op_code == ir::OpCode::STORE) {
       // op1 基地址
       bool op3_in_reg = ir.op3.is_var() && ctx.var_in_reg(ir.op3.name);
-      int op3 = op3_in_reg ? ctx.var_to_reg[ir.op3.name] : 11;
+      int op3 = op3_in_reg ? ctx.var_to_reg[ir.op3.name] : 14;
       if (ir.op1.is_var() && ir.op1.name.substr(0, 2) == "%&" &&
           ir.op2.is_imm()) {
         if (!op3_in_reg) ctx.load("r" + to_string(op3), ir.op3, out);
@@ -453,7 +450,7 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
       } else {
         bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name);
         int op1 = 12;
-        int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 11;
+        int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 14;
         bool offset_is_small =
             ir.op2.is_imm() && ir.op2.value >= -4096 && ir.op2.value < 4096;
 
@@ -480,7 +477,7 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
       } else {
         bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name);
         int op1 = 12;
-        int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 11;
+        int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 14;
         bool offset_is_small =
             ir.op2.is_imm() && ir.op2.value >= -4096 && ir.op2.value < 4096;
 
@@ -499,11 +496,10 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
       if (!ir.op1.is_null()) {
         ctx.load("r0", ir.op1, out);
       }
-      if (ctx.has_function_call) ctx.load("lr", ir::OpName("$ra"), out);
+      ctx.load("r14", ir::OpName("$ra"), out);
 
       // 恢复现场
-      int offset = 4;
-      ctx.load_from_stack_offset("r11", stack_size[2] + stack_size[3], out);
+      int offset = 0;
       for (int i = 0; i < Context::reg_count; i++) {
         if (non_volatile_reg[i] != ctx.savable_reg[i]) {
           ctx.load_from_stack_offset(
@@ -522,7 +518,7 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
             << stack_size[0] + stack_size[1] + stack_size[2] + stack_size[3]
             << endl;
       }
-      out << "    MOV pc, lr" << endl;
+      out << "    MOV pc, r14" << endl;
     }
 
     else if (ir.op_code == ir::OpCode::LABEL) {
