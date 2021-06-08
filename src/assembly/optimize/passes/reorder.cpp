@@ -271,9 +271,9 @@ int Calcu_Correlation(AsmInst inst1, AsmInst inst2) {
     // ADD r6, r11, r12 (不一定是ADD，其他的也有可能)
     // CMP r6, r12
     else if (inst1.op_code == "ADD" || inst1.op_code == "SUB") {
-      return 2;
+      return 1;
     } else if (inst1.op_code == "MUL") {
-      return 3;
+      return 1;
     }
     // 相关情况9.9：写后读相关
     // 这是最后一个，相当于最长前缀匹配
@@ -553,27 +553,6 @@ void asm_swap_node(int* stl, int* ceil, int* down, int* up, int* block,
     // 移动过多条指令后,In就与其他指令没有相关性了,也没有必要再移动了
     t = stl[n];
 
-    // 从In开始向下找
-    for (m = n + 1; (m < array_size) && (t > 0); m++) {
-      if (im_in_block(m, block, array_size)) {
-        break;
-      }
-      if (move[m] != false) {
-        continue;
-      }
-
-      if (up[m] < n) {
-        assert(m < array_size);
-        assert(n - 1 < array_size);
-        insert_list(l0, m, n - 1);
-        // printf("now(%d,%d):", m, n - 1);
-        // print_list(l0);
-        // printf("\n");
-        t = t - 1;
-        move[m] = true;
-      }
-    }
-
     // 从与In关联的指令开始向上找
     for (m = ceil[n] - 1; (m >= 0) && (t > 0); m--) {
       // 如果Im在任何一个关联指令子集中就说明所有在其之上的指令不能调整,否则可能引起冲突
@@ -599,6 +578,27 @@ void asm_swap_node(int* stl, int* ceil, int* down, int* up, int* block,
         // Im已经被移动
         move[m] = true;
       }
+    }
+  }
+
+  // 从In开始向下找
+  for (m = n + 1; (m < array_size) && (t > 0); m++) {
+    if (im_in_block(m, block, array_size)) {
+      break;
+    }
+    if (move[m] != false) {
+      continue;
+    }
+
+    if (up[m] < n) {
+      assert(m < array_size);
+      assert(n - 1 < array_size);
+      insert_list(l0, m, n - 1);
+      // printf("now(%d,%d):", m, n - 1);
+      // print_list(l0);
+      // printf("\n");
+      t = t - 1;
+      move[m] = true;
     }
   }
   delete[] move;

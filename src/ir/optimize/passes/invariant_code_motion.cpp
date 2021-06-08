@@ -64,6 +64,10 @@ bool loop_invariant_code_motion(IRList &ir_before, IRList &ir_cond,
           ir.op_code == OpCode::MOVLE || ir.op_code == OpCode::NOOP) {
         can_optimize = false;
       }
+      // MOV可以优化但不应优化，这只会延长斑斓的生存周期，使得寄存器分配效果变差
+      if (ir.op_code == OpCode::MOV) {
+        can_optimize = false;
+      }
 #define F(op)                                                      \
   if (ir.op.is_var() &&                                            \
       never_write_var.find(ir.op.name) == never_write_var.end()) { \
