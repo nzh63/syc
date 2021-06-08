@@ -197,22 +197,30 @@ AsmInst Create_AsmInst(std::string line1) {
         int length = 1;
         if (token.find(',') != token.npos) {
           length = 2;
-          // [sp,#1] => sp,#1   由于只会记录相关性，所以只加入sp
-          token = token.substr(1, token.find(',') - 1);
+          // [sp,#1] => sp,#1
+          // [sp,r1] => sp,r1
+          auto comma = token.find(',');
+          cisu.emplace_back(token.substr(1, comma - 1), length);
+          auto op2 = token.substr(comma + 1);
+          if (op2.back() == ']') op2.pop_back();
+          if (op2[0] == '#')
+            cisu.emplace_back(stoi(op2.substr(1)));
+          else
+            cisu.emplace_back(op2, length);
         } else {
           token = token.substr(1, token.length() - 2);
+          cisu.emplace_back(token, length);
         }
 
-        cisu.emplace_back(AsmOpName(token, length));
       } else if (token[0] == '#') {  // 立即数
         token = token.substr(1, token.length() - 1);
         istringstream is(token);
         int i;
         is >> i;
-        cisu.emplace_back(AsmOpName(i));
+        cisu.emplace_back(i);
 
       } else {  // 正常寄存器
-        cisu.emplace_back(AsmOpName(token));
+        cisu.emplace_back(token);
       }
     }
     count++;  // 包括操作符一共几个操作数

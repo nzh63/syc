@@ -455,19 +455,15 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
         int op1 = 12;
         int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 11;
         bool offset_is_small =
-            ir.op2.is_imm() && ir.op2.value >= 0 && ir.op2.value < 256;
+            ir.op2.is_imm() && ir.op2.value >= -4096 && ir.op2.value < 4096;
 
         if (!op2_in_reg && !offset_is_small)
           ctx.load("r" + to_string(op2), ir.op2, out);
         ctx.load("r" + to_string(op1), ir.op1, out);
-        if (!offset_is_small)
-          out << "    ADD r12, r" << op1 << ", r" << op2 << endl;
         if (!op3_in_reg) ctx.load("r" + to_string(op3), ir.op3, out);
-        out << "    STR r" << op3 << ", ["
-            << (offset_is_small
-                    ? "r" + to_string(op1) + ",#" + to_string(ir.op2.value)
-                    : "r12")
-            << "]" << endl;
+        out << "    STR r" << op3 << ", [r" << op1 << ','
+            << (offset_is_small ? '#' : 'r')
+            << (offset_is_small ? ir.op2.value : op2) << "]" << endl;
       }
     }
     else if (ir.op_code == ir::OpCode::LOAD) {
@@ -486,18 +482,14 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
         int op1 = 12;
         int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 11;
         bool offset_is_small =
-            ir.op2.is_imm() && ir.op2.value >= 0 && ir.op2.value < 256;
+            ir.op2.is_imm() && ir.op2.value >= -4096 && ir.op2.value < 4096;
 
         if (!op2_in_reg && !offset_is_small)
           ctx.load("r" + to_string(op2), ir.op2, out);
         ctx.load("r" + to_string(op1), ir.op1, out);
-        if (!offset_is_small)
-          out << "    ADD r12, r" << op1 << ", r" << op2 << endl;
-        out << "    LDR r" << dest << ", ["
-            << (offset_is_small
-                    ? "r" + to_string(op1) + ",#" + to_string(ir.op2.value)
-                    : "r12")
-            << "]" << endl;
+        out << "    LDR r" << dest << ", [r" << op1 << ","
+            << (offset_is_small ? '#' : 'r')
+            << (offset_is_small ? ir.op2.value : op2) << "]" << endl;
         if (!dest_in_reg) {
           ctx.store_to_stack("r" + to_string(dest), ir.dest, out);
         }

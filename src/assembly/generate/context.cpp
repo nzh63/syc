@@ -301,8 +301,7 @@ void Context::load(string reg, ir::OpName op, ostream& out) {
               out << "    LDR " << reg << ", [sp,#" << offset << ']' << endl;
             } else {
               out << "    MOV32 " << reg << ", " << offset << endl;
-              out << "    ADD " << reg << ", sp, " << reg << endl;
-              out << "    LDR " << reg << ", [" << reg << ",#0]" << endl;
+              out << "    LDR " << reg << ", [sp, " << reg << "]" << endl;
             }
           }
         }
@@ -319,8 +318,7 @@ void Context::load(string reg, ir::OpName op, ostream& out) {
           out << "    LDR " << reg << ", [sp,#" << offset << ']' << endl;
         } else {
           out << "    MOV32 " << reg << ", " << offset << endl;
-          out << "    ADD " << reg << ", sp, " << reg << endl;
-          out << "    LDR " << reg << ", [" << reg << ",#0]" << endl;
+          out << "    LDR " << reg << ", [sp," << reg << "]" << endl;
         }
       }
     }
@@ -332,8 +330,7 @@ void Context::store_to_stack_offset(string reg, int offset, ostream& out,
   if (!(offset > -4096 && offset < 4096)) {
     string tmp_reg = reg == "r11" ? "r12" : "r11";
     load_imm(tmp_reg, offset, out);
-    out << "    ADD " << tmp_reg << ", sp, " << tmp_reg << endl;
-    out << "    " << op << " " << reg << ", [" << tmp_reg << ",#0]" << endl;
+    out << "    " << op << " " << reg << ", [sp," << tmp_reg << "]" << endl;
   } else {
     out << "    " << op << " " << reg << ", [sp,#" << offset << "]" << endl;
   }
@@ -341,12 +338,11 @@ void Context::store_to_stack_offset(string reg, int offset, ostream& out,
 
 void Context::load_from_stack_offset(string reg, int offset, ostream& out,
                                      string op) {
-  if (!(offset > -4096 && offset < 4096)) {
-    load_imm(reg, offset, out);
-    out << "    ADD " << reg << ", sp, " << reg << endl;
-    out << "    " << op << " " << reg << ", [" << reg << ",#0]" << endl;
-  } else {
+  if (offset > -4096 && offset < 4096) {
     out << "    " << op << " " << reg << ", [sp,#" << offset << "]" << endl;
+  } else {
+    load_imm(reg, offset, out);
+    out << "    " << op << " " << reg << ", [sp," << reg << "]" << endl;
   }
 }
 
