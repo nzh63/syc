@@ -437,8 +437,7 @@ ir::OpName ast::node::UnaryExpression::eval_runtime(ir::Context& ctx,
     case NOT:
       ir.push_back(
           ir::IR(ir::OpCode::CMP, ir::OpName(), 0, rhs.eval_runtime(ctx, ir)));
-      ir.emplace_back(ir::OpCode::MOVEQ, dest, ir::OpName(0));
-      ir.emplace_back(ir::OpCode::MOVNE, dest, ir::OpName(1));
+      ir.emplace_back(ir::OpCode::MOVEQ, dest, 1, 0);
       return dest;
       break;
 
