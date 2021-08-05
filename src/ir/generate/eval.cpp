@@ -376,7 +376,7 @@ ir::OpName ast::node::BinaryExpression::eval_runtime(ir::Context& ctx,
       break;
 
     case AND: {
-      std::string label = "COND" + std::to_string(ctx.get_id()) + "_end";
+      std::string label = "COND" + std::to_string(ctx.get_id()) + "_END";
       ir::IRList end;
       end.emplace_back(ir::OpCode::LABEL, label);
 
@@ -393,7 +393,7 @@ ir::OpName ast::node::BinaryExpression::eval_runtime(ir::Context& ctx,
     }
 
     case OR: {
-      std::string label = "COND" + std::to_string(ctx.get_id()) + "_end";
+      std::string label = "COND" + std::to_string(ctx.get_id()) + "_END";
       ir::IRList end;
       end.emplace_back(ir::OpCode::LABEL, label);
 
@@ -510,8 +510,7 @@ ir::OpName ast::node::EvalStatement::eval_runtime(ir::Context& ctx,
 ast::node::Expression::CondResult ast::node::Expression::eval_cond_runtime(
     ir::Context& ctx, ir::IRList& ir) {
   CondResult ret;
-  ir::OpName dest = "%" + std::to_string(ctx.get_id());
-  ir.emplace_back(ir::OpCode::CMP, dest, this->eval_runtime(ctx, ir),
+  ir.emplace_back(ir::OpCode::CMP, ir::OpName(), this->eval_runtime(ctx, ir),
                   ir::OpName(0));
   ret.then_op = ir::OpCode::JNE;
   ret.else_op = ir::OpCode::JEQ;
