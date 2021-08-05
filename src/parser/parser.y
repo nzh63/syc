@@ -63,9 +63,16 @@ void yyerror(const char *s) { std::printf("Error(line: %d): %s\n", yyget_lineno(
 %token <token> PLUSPLUS MINUSMINUS
 %token <token> PLUS MINUS MUL DIV MOD NOT
 
+%left COMMA
+%left ASSIGN
+%left EQ NE LT LE GT GE
+%left PLUS MINUS
+%left MUL DIV MOD
+%left NOT
+
 %type <token> AddOp MulOp RelOp UnaryOp BType
 %type <ident> ident LVal
-%type <expr> Number Exp CommaExpr InitVal LOrExp LAndExp EqExp AddExp MulExp PrimaryExp RelExp UnaryExp FunctionCall
+%type <expr> Number Exp CommaExpr LOrExp LAndExp EqExp AddExp MulExp PrimaryExp RelExp UnaryExp FunctionCall
 %type <root> CompUnit
 %type <declare_statement> Decl ConstDecl VarDecl ConstDeclStmt VarDeclStmt
 %type <declare> Def DefOne DefArray ConstDef ConstDefOne ConstDefArray
@@ -110,7 +117,7 @@ Def: DefOne
    | DefArray
    ;
 
-DefOne: ident ASSIGN InitVal { $$ = new syc::ast::node::VarDeclareWithInit(*$1, *$3); }
+DefOne: ident ASSIGN AddExp { $$ = new syc::ast::node::VarDeclareWithInit(*$1, *$3); }
       | ident { $$ = new syc::ast::node::VarDeclare(*$1); }
       ;
 
@@ -122,7 +129,7 @@ ConstDef: ConstDefOne
         | ConstDefArray
         ;
 
-ConstDefOne: ident ASSIGN InitVal { $$ = new syc::ast::node::VarDeclareWithInit(*$1, *$3, true); }
+ConstDefOne: ident ASSIGN AddExp { $$ = new syc::ast::node::VarDeclareWithInit(*$1, *$3, true); }
            ;
 
 ConstDefArray: DefArrayName ASSIGN InitValArray { $$ = new syc::ast::node::ArrayDeclareWithInit(*$1, *$3, true); }
@@ -132,21 +139,32 @@ DefArrayName: DefArrayName LSQUARE Exp RSQUARE { $$ = $1; $$->shape.push_back($3
             | ident LSQUARE Exp RSQUARE { $$ = new syc::ast::node::ArrayIdentifier(*$1); $$->shape.push_back($3); }
             ;
 
-InitVal: AddExp;
-
 InitValArray: LBRACE InitValArrayInner RBRACE { $$ = $2; }
             | LBRACE RBRACE { $$ = new syc::ast::node::ArrayDeclareInitValue(false, nullptr); }
             ;
 
 InitValArrayInner: InitValArrayInner COMMA InitValArray { $$ = $1; $$->value_list.push_back($3); }
-                 | InitValArrayInner COMMA InitVal { $$ = $1; $$->value_list.push_back(new syc::ast::node::ArrayDeclareInitValue(true, $3)); }
+                 | InitValArrayInner COMMA AddExp { $$ = $1; $$->value_list.push_back(new syc::ast::node::ArrayDeclareInitValue(true, $3)); }
                  | InitValArray { $$ = new syc::ast::node::ArrayDeclareInitValue(false, nullptr); $$->value_list.push_back($1); }
-                 | InitVal { $$ = new syc::ast::node::ArrayDeclareInitValue(false, nullptr); $$->value_list.push_back(new syc::ast::node::ArrayDeclareInitValue(true, $1)); }
+                 | AddExp { $$ = new syc::ast::node::ArrayDeclareInitValue(false, nullptr); $$->value_list.push_back(new syc::ast::node::ArrayDeclareInitValue(true, $1)); }
+                 | AddExp COMMA InitValArray  {
+                       $$ = new syc::ast::node::ArrayDeclareInitValue(false, nullptr);
+                       $$->value_list.push_back(new syc::ast::node::ArrayDeclareInitValue(true, $1));
+                       $$->value_list.push_back($3);
+                  }
                  | CommaExpr {
                        $$ = new syc::ast::node::ArrayDeclareInitValue(false, nullptr);
                        for (auto i : dynamic_cast<syc::ast::node::CommaExpression*>($1)->values) {
                              $$->value_list.push_back(new syc::ast::node::ArrayDeclareInitValue(true, i));
                        }
+                       delete $1;
+                 }
+                 | CommaExpr COMMA InitValArray {
+                       $$ = new syc::ast::node::ArrayDeclareInitValue(false, nullptr);
+                       for (auto i : dynamic_cast<syc::ast::node::CommaExpression*>($1)->values) {
+                             $$->value_list.push_back(new syc::ast::node::ArrayDeclareInitValue(true, i));
+                       }
+                       $$->value_list.push_back($3);
                        delete $1;
                  }
                  ;

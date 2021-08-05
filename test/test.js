@@ -31,7 +31,7 @@ async function doTest(path, name, opt = '-O0') {
         await exec(`${EXE_PATH} ${path}.sy ${opt} -o ${ASM_TMP_FILE.replace('${name}', name + opt)}`, { encoding: 'utf8' });
         await exec(`arm-linux-gnueabihf-gcc -march=armv7-a ${ASM_TMP_FILE.replace('${name}', name + opt)} -L. -lsysy -o ${EXE_TMP_FILE.replace('${name}', name + opt)} -static -g`, { encoding: 'utf8', cwd: __dirname });
         let exe = child_process.spawn('qemu-arm-static', [EXE_TMP_FILE.replace('${name}', name + opt)], { encoding: 'utf8' });
-        try { exe.stdin.write(await fs.promises.readFile(path + '.in', { encoding: 'utf8' })); } catch (e) { }
+        try { exe.stdin.write(await fs.promises.readFile(path + '.in', { encoding: 'utf8' }) + '\n'); } catch (e) { }
         exe.stdout.on('data', (data) => {
             output += '' + data;
         });
