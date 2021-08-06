@@ -41,7 +41,7 @@ async function doTest(path, name, opt = '-O0') {
         const timeout = setTimeout(() => {
             exe.kill();
             stderr += "timeout, killed by test.js"
-        }, 5000);
+        }, 15000);
         const code = await new Promise(resolve => {
             exe.on('exit', (code, signal) => resolve(code === null ? signal : code))
         });

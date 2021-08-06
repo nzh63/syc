@@ -43,12 +43,14 @@ class AsmOpName {
  public:
   std::string name;
   int value;
-  int length;
+  std::string offset_reg;
+  int offset_imm;
   AsmOpName();
   AsmOpName(std::string name);
   AsmOpName(int value);
-  // 产生内存变量,length代表[]内变量个数
-  AsmOpName(std::string name, int length);
+  // 产生内存变量
+  AsmOpName(std::string name, int offset);
+  AsmOpName(std::string name, std::string offset);
   bool operator==(AsmOpName const& p1) {
     if (this->name == p1.name)
       return true;
@@ -57,6 +59,9 @@ class AsmOpName {
   }
   bool is_var() const { return this->type == AsmOpName::Type::Var; }
   bool is_mem_var() const { return this->type == AsmOpName::Type::MemVar; }
+  bool is_stack_var() const {
+    return this->is_mem_var() && this->name == "sp" && this->offset_reg.empty();
+  }
   bool is_imm() const { return this->type == AsmOpName::Type::Imm; }
   bool is_null() const { return this->type == AsmOpName::Type::Null; }
 };
@@ -78,20 +83,26 @@ class AsmInst {
   AsmInst(std::string op_code, std::string label = "", bool isjump = false);
   bool use(const AsmOpName& op) const {
     assert(op.is_var() || op.is_mem_var());
-#define F(op1)                                          \
-  if (this->op1.is_var()) {                             \
-    if (this->op1.name == op.name) {                    \
-      return true;                                      \
-    }                                                   \
-  } else if (this->op1.is_mem_var()) {                  \
-    if (this->op1.name.find(op.name) != string::npos) { \
-      return true;                                      \
-    }                                                   \
+#define F(op1)                                                \
+  if (this->op1.is_var()) {                                   \
+    if (this->op1.name == op.name) {                          \
+      return true;                                            \
+    }                                                         \
+  } else if (this->op1.is_mem_var()) {                        \
+    if (this->op1.name.find(op.name) != string::npos) {       \
+      return true;                                            \
+    }                                                         \
+    if (this->op1.offset_reg.find(op.name) != string::npos) { \
+      return true;                                            \
+    }                                                         \
   }
     F(op1);
     F(op2);
     F(op3);
 #undef F
+    if (this->dest.offset_reg.find(op.name) != string::npos) {
+      return true;
+    }
     return false;
   }
 };
@@ -110,8 +121,10 @@ AsmOpName::AsmOpName() : type(AsmOpName::Type::Null) {}
 AsmOpName::AsmOpName(std::string name)
     : type(AsmOpName::Type::Var), name(name) {}
 AsmOpName::AsmOpName(int value) : type(AsmOpName::Type::Imm), value(value) {}
-AsmOpName::AsmOpName(std::string name, int length)
-    : type(AsmOpName::Type::MemVar), name(name), length(length) {}
+AsmOpName::AsmOpName(std::string name, int offset)
+    : type(AsmOpName::Type::MemVar), name(name), offset_imm(offset) {}
+AsmOpName::AsmOpName(std::string name, std::string offset)
+    : type(AsmOpName::Type::MemVar), name(name), offset_reg(offset) {}
 
 AsmInst::AsmInst(std::string op_code, AsmOpName dest, AsmOpName op1,
                  AsmOpName op2, AsmOpName op3, std::string label, bool isjump)
@@ -194,22 +207,20 @@ AsmInst Create_AsmInst(std::string line1) {
       }
     } else {                  // 不是操作符
       if (token[0] == '[') {  // 内存变量
-        int length = 1;
-        if (token.find(',') != token.npos) {
-          length = 2;
-          // [sp,#1] => sp,#1
-          // [sp,r1] => sp,r1
-          auto comma = token.find(',');
-          cisu.emplace_back(token.substr(1, comma - 1), length);
-          auto op2 = token.substr(comma + 1);
-          if (op2.back() == ']') op2.pop_back();
-          if (op2[0] == '#')
-            cisu.emplace_back(stoi(op2.substr(1)));
-          else
-            cisu.emplace_back(op2, length);
+        if (token.find(',') == token.npos) {
+          token.pop_back();
+          token.append(",#0]");
+        }
+        // [sp,#1] => sp,#1
+        // [sp,r1] => sp,r1
+        auto comma = token.find(',');
+        auto square = token.find(']');
+        auto offset = token.substr(comma + 1);
+        offset.pop_back();
+        if (offset.front() == '#') {
+          cisu.emplace_back(token.substr(1, comma - 1), stoi(offset.substr(1)));
         } else {
-          token = token.substr(1, token.length() - 2);
-          cisu.emplace_back(token, length);
+          cisu.emplace_back(token.substr(1, comma - 1), offset);
         }
 
       } else if (token[0] == '#') {  // 立即数
@@ -304,17 +315,30 @@ int Calcu_Correlation(AsmInst inst1, AsmInst inst2) {
     return 0;
   }
   // 访存相同指针
+  auto maybe_same = [](AsmOpName a, AsmOpName b) {
+    if (a.is_stack_var() && b.is_stack_var()) {
+      return a.offset_imm == b.offset_imm;
+    }
+    return true;
+  };
+  if (inst1.op_code.starts_with("STR") && inst2.op_code.starts_with("STR")) {
+    assert(inst1.dest.is_mem_var());
+    assert(inst2.dest.is_mem_var());
+    if (maybe_same(inst1.dest, inst2.dest)) {
+      return 0;
+    }
+  }
   if (inst1.op_code.starts_with("LDR") && inst2.op_code.starts_with("STR")) {
     assert(inst1.op1.is_mem_var());
     assert(inst2.dest.is_mem_var());
-    if (inst1.op1.name != "sp" && inst2.dest.name != "sp") {
+    if (maybe_same(inst1.op1, inst2.dest)) {
       return 0;
     }
   }
   if (inst1.op_code.starts_with("STR") && inst2.op_code.starts_with("LDR")) {
     assert(inst1.dest.is_mem_var());
     assert(inst2.op1.is_mem_var());
-    if (inst1.dest.name != "sp" && inst2.op1.name != "sp") {
+    if (maybe_same(inst1.op1, inst2.op1)) {
       return 0;
     }
   }
