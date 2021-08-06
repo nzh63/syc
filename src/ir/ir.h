@@ -39,6 +39,8 @@ class OpName {
   OpName(std::string name);
   OpName(int value);
   bool is_var() const;
+  bool is_local_var() const;
+  bool is_global_var() const;
   bool is_imm() const;
   bool is_null() const;
   bool operator==(const OpName& other) const;
@@ -98,6 +100,7 @@ class IR {
   IR(OpCode op_code, OpName dest, OpName op1, std::string label = "");
   IR(OpCode op_code, OpName dest, std::string label = "");
   IR(OpCode op_code, std::string label = "");
+  bool some(decltype(&syc::ir::OpName::is_var) callback) const;
   void print(std::ostream& out = std::cerr, bool verbose = false) const;
 };
 

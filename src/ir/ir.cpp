@@ -24,8 +24,16 @@ OpName::OpName() : type(OpName::Type::Null) {}
 OpName::OpName(std::string name) : type(OpName::Type::Var), name(name) {}
 OpName::OpName(int value) : type(OpName::Type::Imm), value(value) {}
 bool OpName::is_var() const { return this->type == OpName::Type::Var; }
+bool OpName::is_local_var() const {
+  return this->is_var() &&
+         (this->name.starts_with('%') || this->name.starts_with("$arg"));
+}
+bool OpName::is_global_var() const {
+  return this->is_var() && this->name.starts_with('@');
+}
 bool OpName::is_imm() const { return this->type == OpName::Type::Imm; }
 bool OpName::is_null() const { return this->type == OpName::Type::Null; }
+
 bool OpName::operator==(const OpName& other) const {
   if (this->type != other.type) return false;
   if (this->is_var()) {
@@ -74,6 +82,10 @@ IR::IR(OpCode op_code, std::string label)
       op2(OpName()),
       op3(OpName()),
       label(label) {}
+bool IR::some(decltype(&syc::ir::OpName::is_var) callback) const {
+  return (this->op1.*callback)() || (this->op2.*callback)() ||
+         (this->op3.*callback)();
+}
 void IR::print(std::ostream& out, bool verbose) const {
   switch (this->op_code) {
     case OpCode::MALLOC_IN_STACK:

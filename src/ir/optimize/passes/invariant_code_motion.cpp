@@ -44,11 +44,15 @@ bool loop_invariant_code_motion(IRList &ir_before, IRList &ir_cond,
 #undef F
     }
   }
+  bool has_function_call = false;
   for (auto irs :
        std::vector<IRList *>({&ir_cond, &ir_jmp, &ir_do, &ir_continue})) {
     for (auto &ir : *irs) {
       if (ir.dest.is_var()) {
         never_write_var.erase(ir.dest.name);
+      }
+      if (ir.op_code == OpCode::CALL) {
+        has_function_call = true;
       }
     }
   }
@@ -78,6 +82,9 @@ bool loop_invariant_code_motion(IRList &ir_before, IRList &ir_cond,
       F(op3);
 #undef F
       if (!ir.dest.is_var()) {
+        can_optimize = false;
+      }
+      if (has_function_call && ir.some(&OpName::is_global_var)) {
         can_optimize = false;
       }
       if (can_optimize) {
