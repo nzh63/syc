@@ -58,19 +58,14 @@ void Context::set_ir_timestamp(ir::IR& cur) {
 }
 void Context::set_var_latest_use_timestamp(ir::IR& cur) {
   if (cur.op_code != ir::OpCode::MALLOC_IN_STACK) {
-#define F(op1)                                                           \
-  if (cur.op1.is_var()) {                                                \
-    if (!var_latest_use_timestamp.count(cur.op1.name)) {                 \
-      var_latest_use_timestamp.insert({cur.op1.name, ir_to_time[&cur]}); \
-      var_latest_use_timestamp_heap.insert(                              \
-          make_pair(ir_to_time[&cur], cur.op1.name));                    \
-    }                                                                    \
-  }
-    F(dest);
-    F(op1);
-    F(op2);
-    F(op3);
-#undef F
+    cur.forEachOp([&, this](ir::OpName op) {
+      if (op.is_var()) {
+        if (!var_latest_use_timestamp.count(op.name)) {
+          var_latest_use_timestamp.insert({op.name, ir_to_time[&cur]});
+          var_latest_use_timestamp_heap.insert({ir_to_time[&cur], op.name});
+        }
+      }
+    });
   }
   if (cur.op_code == ir::OpCode::SET_ARG && cur.dest.value < 4) {
     string name = "$arg:" + to_string(cur.dest.value) + ":" +

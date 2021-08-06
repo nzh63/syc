@@ -34,14 +34,13 @@ bool loop_invariant_code_motion(IRList &ir_before, IRList &ir_cond,
       if (ir.op_code == OpCode::LOAD || ir.op_code == OpCode::CALL) {
         continue;
       }
-#define F(op)                           \
-  if (ir.op.is_var()) {                 \
-    never_write_var.insert(ir.op.name); \
-  }
-      F(op1);
-      F(op2);
-      F(op3);
-#undef F
+      ir.forEachOp(
+          [&](OpName op) {
+            if (op.is_var()) {
+              never_write_var.insert(op.name);
+            }
+          },
+          false);
     }
   }
   bool has_function_call = false;
@@ -72,19 +71,16 @@ bool loop_invariant_code_motion(IRList &ir_before, IRList &ir_cond,
       if (ir.op_code == OpCode::MOV) {
         can_optimize = false;
       }
-#define F(op)                                                      \
-  if (ir.op.is_var() &&                                            \
-      never_write_var.find(ir.op.name) == never_write_var.end()) { \
-    can_optimize = false;                                          \
-  }
-      F(op1);
-      F(op2);
-      F(op3);
-#undef F
+      can_optimize &= !ir.some(
+          [&](OpName op) {
+            return op.is_var() &&
+                   never_write_var.find(op.name) == never_write_var.end();
+          },
+          false);
       if (!ir.dest.is_var()) {
         can_optimize = false;
       }
-      if (has_function_call && ir.some(&OpName::is_global_var)) {
+      if (has_function_call && ir.some(&OpName::is_global_var, false)) {
         can_optimize = false;
       }
       if (can_optimize) {

@@ -82,10 +82,26 @@ IR::IR(OpCode op_code, std::string label)
       op2(OpName()),
       op3(OpName()),
       label(label) {}
-bool IR::some(decltype(&syc::ir::OpName::is_var) callback) const {
-  return (this->op1.*callback)() || (this->op2.*callback)() ||
-         (this->op3.*callback)();
+bool IR::some(decltype(&syc::ir::OpName::is_var) callback,
+              bool include_dest) const {
+  return this->some([callback](OpName op) { return (op.*callback)(); },
+                    include_dest);
 }
+bool IR::some(std::function<bool(const syc::ir::OpName&)> callback,
+              bool include_dest) const {
+  return (include_dest && callback(this->dest)) || callback(this->op1) ||
+         callback(this->op2) || callback(this->op3);
+}
+void IR::forEachOp(std::function<void(const syc::ir::OpName&)> callback,
+                   bool include_dest) const {
+  this->some(
+      [callback](const syc::ir::OpName& op) {
+        callback(op);
+        return false;
+      },
+      include_dest);
+}
+
 void IR::print(std::ostream& out, bool verbose) const {
   switch (this->op_code) {
     case OpCode::MALLOC_IN_STACK:
@@ -216,18 +232,15 @@ void IR::print(std::ostream& out, bool verbose) const {
       out << "INFO" << std::string(16 - std::string("INFO").size(), ' ');
       break;
   }
-#define F(op)                      \
-  if (this->op.is_imm()) {         \
-    out << this->op.value << '\t'; \
-  } else if (this->op.is_var()) {  \
-    out << this->op.name << '\t';  \
-  } else if (this->op.is_null()) { \
-    out << '\t';                   \
-  }
-  F(dest);
-  F(op1);
-  F(op2);
-  F(op3);
+  this->forEachOp([&out](const OpName& op) {
+    if (op.is_imm()) {
+      out << op.value << '\t';
+    } else if (op.is_var()) {
+      out << op.name << '\t';
+    } else if (op.is_null()) {
+      out << '\t';
+    }
+  });
   out << this->label;
   out << std::endl;
 }

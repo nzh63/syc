@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include <functional>
 #include <iostream>
 #include <list>
 #include <string>
@@ -100,7 +101,12 @@ class IR {
   IR(OpCode op_code, OpName dest, OpName op1, std::string label = "");
   IR(OpCode op_code, OpName dest, std::string label = "");
   IR(OpCode op_code, std::string label = "");
-  bool some(decltype(&syc::ir::OpName::is_var) callback) const;
+  bool some(decltype(&syc::ir::OpName::is_var) callback,
+            bool include_dest = true) const;
+  bool some(std::function<bool(const syc::ir::OpName&)> callback,
+            bool include_dest = true) const;
+  void forEachOp(std::function<void(const syc::ir::OpName&)> callback,
+                 bool include_dest = true) const;
   void print(std::ostream& out = std::cerr, bool verbose = false) const;
 };
 

@@ -538,16 +538,15 @@ void WhileStatement::generate_ir(Context& ctx, IRList& ir) {
   for (const auto& irs : std::vector<IRList*>{&ir_cond, &ir_jmp, &ir_do}) {
     for (const auto& i : *irs) {
       if (i.dest.is_var()) written.insert(i.dest.name);
-#define F(op1)                                                 \
-  if (i.op1.is_var()) {                                        \
-    if (!written.count(i.op1.name)) {                          \
-      ir_continue.emplace_back(OpCode::NOOP, OpName(), i.op1); \
-    }                                                          \
-  }
-      F(op1);
-      F(op2);
-      F(op3);
-#undef F
+      i.forEachOp(
+          [&](OpName op) {
+            if (op.is_var()) {
+              if (!written.count(op.name)) {
+                ir_continue.emplace_back(OpCode::NOOP, OpName(), op);
+              }
+            }
+          },
+          false);
     }
   }
 

@@ -33,16 +33,15 @@ void optimize_phi_var(IRList &ir) {
   std::map<std::string, int> use_count;
   std::map<std::string, std::string> replace_table;
   for (const auto &i : ir) {
-#define F(op1)                                         \
-  if (i.op1.is_var()) {                                \
-    if (use_count.find(i.op1.name) == use_count.end()) \
-      use_count[i.op1.name] = 0;                       \
-    use_count[i.op1.name]++;                           \
-  }
-    F(op1)
-    F(op2)
-    F(op3)
-#undef F
+    i.forEachOp(
+        [&](OpName op) {
+          if (op.is_var()) {
+            if (use_count.find(op.name) == use_count.end())
+              use_count[op.name] = 0;
+            use_count[op.name]++;
+          }
+        },
+        false);
   }
   for (auto it = ir.begin(); it != ir.end(); it++) {
     if (it->op_code == OpCode::PHI_MOV) {
@@ -60,16 +59,12 @@ void optimize_phi_var(IRList &ir) {
     }
   }
   for (auto &i : ir) {
-#define F(op1)                                                 \
-  if (i.op1.is_var()) {                                        \
-    if (replace_table.find(i.op1.name) != replace_table.end()) \
-      i.op1.name = replace_table[i.op1.name];                  \
-  }
-    F(dest)
-    F(op1)
-    F(op2)
-    F(op3)
-#undef F
+    i.forEachOp([&](OpName op) {
+      if (op.is_var()) {
+        if (replace_table.find(op.name) != replace_table.end())
+          op.name = replace_table[op.name];
+      }
+    });
   }
 }
 

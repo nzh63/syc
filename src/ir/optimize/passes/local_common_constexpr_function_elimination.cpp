@@ -31,16 +31,9 @@ bool is_constexpr_function(const IRList &irs, IRList::const_iterator begin,
                            IRList::const_iterator end) {
   for (auto it = begin; it != end; it++) {
     auto &ir = *it;
-#define F(op)                                                      \
-  if (ir.op.is_var()) {                                            \
-    if (ir.op.name[0] != '%' && ir.op.name.substr(0, 4) != "$arg") \
-      return false;                                                \
-  }
-    F(op1);
-    F(op2);
-    F(op3);
-    F(dest);
-#undef F
+    if (ir.some(&OpName::is_global_var)) {
+      return false;
+    }
     if (ir.op_code == OpCode::INFO && ir.label == "NOT CONSTEXPR") {
       return false;
     }
