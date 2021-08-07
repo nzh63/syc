@@ -20,9 +20,11 @@ syc [options] file
 OPTIONS:
   -o <file>     Place the output into <file>.
   -O<number>    Set optimization level to <number>.
+  -g            Produce debugging information in DWARF2 format.
   -yydebug      Enable debug of yacc parsers.
   -print_ast    Print the AST to stderr.
   -print_ir     Print the IR to stderr.
+  -print_log    Print logs to assembly comment.
 
 ```
 
