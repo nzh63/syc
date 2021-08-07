@@ -19,14 +19,17 @@
 #include <cstdio>
 #include <fstream>
 #include <iostream>
+#include <string>
 
 namespace syc::config {
 extern int optimize_level;
 extern bool print_ast;
 extern bool print_ir;
 extern bool print_log;
+extern bool enable_dwarf2;
 extern FILE* input;
 extern std::ostream* output;
+extern std::string input_filename;
 
 void parse_arg(int argc, char** argv);
 }  // namespace syc::config

@@ -30,29 +30,42 @@ class Context;
 using INTEGER = std::int32_t;
 
 namespace ast::node {
+class BaseNode;
+BaseNode* current();
 class BaseNode {
  public:
+  int line, column;
+  BaseNode();
   virtual ~BaseNode();
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   void print_indentation(int indentation = 0, bool end = false,
                          std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
+  void generate_ir(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
 };
 
 class Expression : public BaseNode {
  public:
-  virtual int eval(ir::Context& ctx);
-  virtual ir::OpName eval_runtime(ir::Context& ctx, ir::IRList& ir);
+  int eval(ir::Context& ctx);
+  ir::OpName eval_runtime(ir::Context& ctx, ir::IRList& ir);
   struct CondResult {
     ir::OpCode then_op;
     ir::OpCode else_op;
   };
-  virtual CondResult eval_cond_runtime(ir::Context& ctx, ir::IRList& ir);
+  CondResult eval_cond_runtime(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual int _eval(ir::Context& ctx);
+  virtual ir::OpName _eval_runtime(ir::Context& ctx, ir::IRList& ir);
+  virtual CondResult _eval_cond_runtime(ir::Context& ctx, ir::IRList& ir);
 };
 
 class Statement : public Expression {
-  virtual ir::OpName eval_runtime(ir::Context& ctx, ir::IRList& ir);
+ protected:
+  virtual ir::OpName _eval_runtime(ir::Context& ctx, ir::IRList& ir);
 };
 
 class Declare : public BaseNode {};
@@ -63,8 +76,8 @@ class Identifier : public Expression {
   Identifier(const std::string& name);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual int eval(ir::Context& ctx);
-  virtual ir::OpName eval_runtime(ir::Context& ctx, ir::IRList& ir);
+  virtual int _eval(ir::Context& ctx);
+  virtual ir::OpName _eval_runtime(ir::Context& ctx, ir::IRList& ir);
 };
 
 class ConditionExpression : public Expression {
@@ -73,8 +86,10 @@ class ConditionExpression : public Expression {
   ConditionExpression(Expression& value);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual int eval(ir::Context& ctx);
-  virtual ir::OpName eval_runtime(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual int _eval(ir::Context& ctx);
+  virtual ir::OpName _eval_runtime(ir::Context& ctx, ir::IRList& ir);
 };
 
 class BinaryExpression : public Expression {
@@ -85,9 +100,11 @@ class BinaryExpression : public Expression {
   BinaryExpression(Expression& lhs, int op, Expression& rhs);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual int eval(ir::Context& ctx);
-  virtual ir::OpName eval_runtime(ir::Context& ctx, ir::IRList& ir);
-  virtual CondResult eval_cond_runtime(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual int _eval(ir::Context& ctx);
+  virtual ir::OpName _eval_runtime(ir::Context& ctx, ir::IRList& ir);
+  virtual CondResult _eval_cond_runtime(ir::Context& ctx, ir::IRList& ir);
 };
 
 class UnaryExpression : public Expression {
@@ -97,8 +114,10 @@ class UnaryExpression : public Expression {
   UnaryExpression(int op, Expression& rhs);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual int eval(ir::Context& ctx);
-  virtual ir::OpName eval_runtime(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual int _eval(ir::Context& ctx);
+  virtual ir::OpName _eval_runtime(ir::Context& ctx, ir::IRList& ir);
 };
 
 class CommaExpression : public Expression {
@@ -107,8 +126,10 @@ class CommaExpression : public Expression {
   CommaExpression() = default;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual int eval(ir::Context& ctx);
-  virtual ir::OpName eval_runtime(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual int _eval(ir::Context& ctx);
+  virtual ir::OpName _eval_runtime(ir::Context& ctx, ir::IRList& ir);
 };
 
 class FunctionCallArgList : public Expression {
@@ -125,7 +146,9 @@ class FunctionCall : public Expression {
   FunctionCall(Identifier& name, FunctionCallArgList& args);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual ir::OpName eval_runtime(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual ir::OpName _eval_runtime(ir::Context& ctx, ir::IRList& ir);
 };
 
 class Number : public Expression {
@@ -135,8 +158,8 @@ class Number : public Expression {
   Number(INTEGER value);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual int eval(ir::Context& ctx);
-  virtual ir::OpName eval_runtime(ir::Context& ctx, ir::IRList& ir);
+  virtual int _eval(ir::Context& ctx);
+  virtual ir::OpName _eval_runtime(ir::Context& ctx, ir::IRList& ir);
 };
 
 class Block : public Statement {
@@ -144,7 +167,9 @@ class Block : public Statement {
   std::vector<Statement*> statements;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
 };
 
 class Assignment : public Statement {
@@ -154,9 +179,11 @@ class Assignment : public Statement {
   Assignment(Identifier& lhs, Expression& rhs);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
-  virtual int eval(ir::Context& ctx);
-  virtual ir::OpName eval_runtime(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
+  virtual int _eval(ir::Context& ctx);
+  virtual ir::OpName _eval_runtime(ir::Context& ctx, ir::IRList& ir);
 };
 
 class AfterInc : public Statement {
@@ -166,9 +193,11 @@ class AfterInc : public Statement {
   AfterInc(Identifier& lhs, int op);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
-  virtual int eval(ir::Context& ctx);
-  virtual ir::OpName eval_runtime(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
+  virtual int _eval(ir::Context& ctx);
+  virtual ir::OpName _eval_runtime(ir::Context& ctx, ir::IRList& ir);
 };
 
 class IfElseStatement : public Statement {
@@ -180,7 +209,9 @@ class IfElseStatement : public Statement {
                   Statement& elsestmt);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
 };
 
 class WhileStatement : public Statement {
@@ -190,19 +221,25 @@ class WhileStatement : public Statement {
   WhileStatement(ConditionExpression& cond, Statement& dostmt);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
 };
 
 class BreakStatement : public Statement {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
 };
 
 class ContinueStatement : public Statement {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
 };
 
 class ReturnStatement : public Statement {
@@ -211,7 +248,9 @@ class ReturnStatement : public Statement {
   ReturnStatement(Expression* value = NULL);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
 };
 
 class EvalStatement : public Statement {
@@ -220,15 +259,19 @@ class EvalStatement : public Statement {
   EvalStatement(Expression& value);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
-  virtual int eval(ir::Context& ctx);
-  virtual ir::OpName eval_runtime(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
+  virtual int _eval(ir::Context& ctx);
+  virtual ir::OpName _eval_runtime(ir::Context& ctx, ir::IRList& ir);
 };
 
 class VoidStatement : public Statement {
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
 };
 
 class DeclareStatement : public Statement {
@@ -238,7 +281,9 @@ class DeclareStatement : public Statement {
   DeclareStatement(int type);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
 };
 
 class ArrayDeclareInitValue : public Expression {
@@ -260,7 +305,9 @@ class VarDeclareWithInit : public Declare {
                      bool is_const = false);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
 };
 
 class VarDeclare : public Declare {
@@ -269,7 +316,9 @@ class VarDeclare : public Declare {
   VarDeclare(Identifier& name);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
 };
 
 class ArrayIdentifier : public Identifier {
@@ -279,8 +328,8 @@ class ArrayIdentifier : public Identifier {
   ArrayIdentifier(Identifier& name);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual int eval(ir::Context& ctx);
-  virtual ir::OpName eval_runtime(ir::Context& ctx, ir::IRList& ir);
+  virtual int _eval(ir::Context& ctx);
+  virtual ir::OpName _eval_runtime(ir::Context& ctx, ir::IRList& ir);
   void store_runtime(ir::OpName value, ir::Context& ctx, ir::IRList& ir);
 };
 
@@ -293,7 +342,9 @@ class ArrayDeclareWithInit : public Declare {
                        bool is_const = false);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
 };
 
 class ArrayDeclare : public Declare {
@@ -302,7 +353,9 @@ class ArrayDeclare : public Declare {
   ArrayDeclare(ArrayIdentifier& name);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
 };
 
 class FunctionDefineArg : public Expression {
@@ -331,7 +384,9 @@ class FunctionDefine : public BaseNode {
                  Block& body);
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
 };
 
 class Root : public BaseNode {
@@ -339,7 +394,9 @@ class Root : public BaseNode {
   std::vector<BaseNode*> body;
   virtual void print(int indentation = 0, bool end = true,
                      std::ostream& out = std::cerr);
-  virtual void generate_ir(ir::Context& ctx, ir::IRList& ir);
+
+ protected:
+  virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
 };
 }  // namespace ast::node
 }  // namespace syc

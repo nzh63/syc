@@ -721,7 +721,8 @@ void reorder(std::istream& in, std::ostream& out) {
     stringstream ss(line1);
     string token;
     if (ss >> token) {
-      if (token.ends_with(":") || token.starts_with(".") ||
+      if (token.ends_with(":") ||
+          (token.starts_with(".") || !token.starts_with(".loc")) ||
           token.starts_with("B") || token == "SMULL" ||
           (token == "MOV" && line1.find("pc") != string::npos)) {
         blk_linenum.emplace_back(linenum);
@@ -755,7 +756,7 @@ void reorder(std::istream& in, std::ostream& out) {
     string comment;
     while (getline(in2, line1)) {
       // 第二遍扫描，某一块指令数目>5才会去优化
-      if (line1.starts_with("#")) {
+      if (line1.starts_with("#") || line1.starts_with(".loc")) {
         comment += line1 + '\n';
         continue;
       }

@@ -30,18 +30,18 @@
 using namespace syc::ir;
 
 namespace syc::ast::node {
-void BaseNode::generate_ir(Context& ctx, IRList& ir) {
+void BaseNode::_generate_ir(Context& ctx, IRList& ir) {
   this->print();
   throw std::runtime_error("Can't generate IR for this node.");
 }
 
-void Root::generate_ir(Context& ctx, IRList& ir) {
+void Root::_generate_ir(Context& ctx, IRList& ir) {
   for (auto& i : this->body) {
     i->generate_ir(ctx, ir);
   }
 }
 
-void VarDeclare::generate_ir(Context& ctx, IRList& ir) {
+void VarDeclare::_generate_ir(Context& ctx, IRList& ir) {
   if (ctx.is_global()) {
     ir.emplace_back(OpCode::DATA_BEGIN, "@" + this->name.name);
     ir.emplace_back(OpCode::DATA_WORD, OpName(0));
@@ -53,7 +53,7 @@ void VarDeclare::generate_ir(Context& ctx, IRList& ir) {
   }
 }
 
-void VarDeclareWithInit::generate_ir(Context& ctx, IRList& ir) {
+void VarDeclareWithInit::_generate_ir(Context& ctx, IRList& ir) {
   if (ctx.is_global()) {
     ir.emplace_back(OpCode::DATA_BEGIN, "@" + this->name.name);
     ir.emplace_back(OpCode::DATA_WORD, OpName(this->value.eval(ctx)));
@@ -65,14 +65,17 @@ void VarDeclareWithInit::generate_ir(Context& ctx, IRList& ir) {
   } else {
     ctx.insert_symbol(this->name.name,
                       VarInfo("%" + std::to_string(ctx.get_id())));
-    Assignment(this->name, this->value).generate_ir(ctx, ir);
+    Assignment assignment(this->name, this->value);
+    assignment.line = this->line;
+    assignment.column = this->column;
+    assignment.generate_ir(ctx, ir);
     if (this->is_const) {
       ctx.insert_const(this->name.name, ConstInfo(this->value.eval(ctx)));
     }
   }
 }
 
-void ArrayDeclare::generate_ir(Context& ctx, IRList& ir) {
+void ArrayDeclare::_generate_ir(Context& ctx, IRList& ir) {
   std::vector<int> shape;
   for (auto i : this->name.shape) shape.push_back(i->eval(ctx));
   int size = 1;
@@ -175,7 +178,7 @@ void _ArrayDeclareWithInit(ArrayDeclareWithInit& that,
 }
 }  // namespace
 
-void ArrayDeclareWithInit::generate_ir(Context& ctx, IRList& ir) {
+void ArrayDeclareWithInit::_generate_ir(Context& ctx, IRList& ir) {
   std::vector<int> shape;
   for (auto i : this->name.shape) shape.push_back(i->eval(ctx));
   int size = 1;
@@ -206,7 +209,7 @@ void ArrayDeclareWithInit::generate_ir(Context& ctx, IRList& ir) {
   }
 }
 
-void FunctionDefine::generate_ir(Context& ctx, IRList& ir) {
+void FunctionDefine::_generate_ir(Context& ctx, IRList& ir) {
   ctx.create_scope();
   int arg_len = this->args.list.size();
   ir.emplace_back(OpCode::FUNCTION_BEGIN, OpName(), arg_len, this->name.name);
@@ -235,30 +238,30 @@ void FunctionDefine::generate_ir(Context& ctx, IRList& ir) {
   ctx.end_scope();
 }
 
-void Block::generate_ir(Context& ctx, IRList& ir) {
+void Block::_generate_ir(Context& ctx, IRList& ir) {
   ctx.create_scope();
   for (auto i : this->statements) i->generate_ir(ctx, ir);
   ctx.end_scope();
 }
 
-void DeclareStatement::generate_ir(Context& ctx, IRList& ir) {
+void DeclareStatement::_generate_ir(Context& ctx, IRList& ir) {
   for (auto i : this->list) i->generate_ir(ctx, ir);
 }
 
-void VoidStatement::generate_ir(Context& ctx, IRList& ir) {}
+void VoidStatement::_generate_ir(Context& ctx, IRList& ir) {}
 
-void EvalStatement::generate_ir(Context& ctx, IRList& ir) {
+void EvalStatement::_generate_ir(Context& ctx, IRList& ir) {
   this->value.eval_runtime(ctx, ir);
 }
 
-void ReturnStatement::generate_ir(Context& ctx, IRList& ir) {
+void ReturnStatement::_generate_ir(Context& ctx, IRList& ir) {
   if (this->value != NULL)
     ir.emplace_back(OpCode::RET, OpName(), this->value->eval_runtime(ctx, ir));
   else
     ir.emplace_back(OpCode::RET);
 }
 
-void ContinueStatement::generate_ir(Context& ctx, IRList& ir) {
+void ContinueStatement::_generate_ir(Context& ctx, IRList& ir) {
   ctx.loop_continue_symbol_snapshot.top().push_back(ctx.symbol_table);
   for (auto& i : ctx.loop_continue_phi_move.top()) {
     ir.emplace_back(
@@ -266,10 +269,10 @@ void ContinueStatement::generate_ir(Context& ctx, IRList& ir) {
         OpName(
             ctx.symbol_table[i.first.first].find(i.first.second)->second.name));
   }
-  ir.emplace_back(OpCode::JMP, "LOOP_" + ctx.loop_label.top() + "_CONTINUE");
+  ir.emplace_back(OpCode::JMP, ".L.LOOP_" + ctx.loop_label.top() + "_CONTINUE");
 }
 
-void BreakStatement::generate_ir(Context& ctx, IRList& ir) {
+void BreakStatement::_generate_ir(Context& ctx, IRList& ir) {
   ctx.loop_break_symbol_snapshot.top().push_back(ctx.symbol_table);
   for (auto& i : ctx.loop_break_phi_move.top()) {
     ir.emplace_back(
@@ -277,10 +280,10 @@ void BreakStatement::generate_ir(Context& ctx, IRList& ir) {
         OpName(
             ctx.symbol_table[i.first.first].find(i.first.second)->second.name));
   }
-  ir.emplace_back(OpCode::JMP, "LOOP_" + ctx.loop_label.top() + "_END");
+  ir.emplace_back(OpCode::JMP, ".L.LOOP_" + ctx.loop_label.top() + "_END");
 }
 
-void WhileStatement::generate_ir(Context& ctx, IRList& ir) {
+void WhileStatement::_generate_ir(Context& ctx, IRList& ir) {
   ctx.create_scope();
   ctx.loop_label.push(std::to_string(ctx.get_id()));
   ctx.loop_var.push({});
@@ -311,12 +314,12 @@ void WhileStatement::generate_ir(Context& ctx, IRList& ir) {
   Context ctx_cond = ctx_before;
   IRList ir_cond;
   ir_cond.emplace_back(OpCode::LABEL,
-                       "LOOP_" + ctx.loop_label.top() + "_BEGIN");
+                       ".L.LOOP_" + ctx.loop_label.top() + "_BEGIN");
   auto cond = this->cond.eval_cond_runtime(ctx_cond, ir_cond);
 
   // JMP
   IRList ir_jmp;
-  ir_jmp.emplace_back(cond.else_op, "LOOP_" + ctx.loop_label.top() + "_END");
+  ir_jmp.emplace_back(cond.else_op, ".L.LOOP_" + ctx.loop_label.top() + "_END");
 
   // DO (fake)
   Context ctx_do_fake = ctx_cond;
@@ -366,7 +369,7 @@ void WhileStatement::generate_ir(Context& ctx, IRList& ir) {
       }
     }
   }
-  ir_do.emplace_back(OpCode::LABEL, "LOOP_" + ctx.loop_label.top() + "_DO");
+  ir_do.emplace_back(OpCode::LABEL, ".L.LOOP_" + ctx.loop_label.top() + "_DO");
   this->dostmt.generate_ir(ctx_do, ir_do);
   for (auto& i : ctx_do.loop_continue_phi_move.top()) {
     ir_do.emplace_back(OpCode::PHI_MOV, i.second,
@@ -394,11 +397,11 @@ void WhileStatement::generate_ir(Context& ctx, IRList& ir) {
   Context ctx_continue = ctx_do;
   IRList ir_continue;
   ir_continue.emplace_back(OpCode::LABEL,
-                           "LOOP_" + ctx.loop_label.top() + "_CONTINUE");
+                           ".L.LOOP_" + ctx.loop_label.top() + "_CONTINUE");
 
   ir_cond.clear();
   ir_cond.emplace_back(OpCode::LABEL,
-                       "LOOP_" + ctx.loop_label.top() + "_BEGIN");
+                       ".L.LOOP_" + ctx.loop_label.top() + "_BEGIN");
 
   for (int i = 0; i < ctx_before.symbol_table.size(); i++) {
     for (const auto& symbol_before : ctx_before.symbol_table[i]) {
@@ -418,9 +421,9 @@ void WhileStatement::generate_ir(Context& ctx, IRList& ir) {
     }
   }
   ir_continue.emplace_back(OpCode::JMP,
-                           "LOOP_" + ctx.loop_label.top() + "_BEGIN");
+                           ".L.LOOP_" + ctx.loop_label.top() + "_BEGIN");
   ir_continue.emplace_back(OpCode::LABEL,
-                           "LOOP_" + ctx.loop_label.top() + "_END");
+                           ".L.LOOP_" + ctx.loop_label.top() + "_END");
 
   //////////////////////////////////////////////////////////////////////
 
@@ -430,7 +433,7 @@ void WhileStatement::generate_ir(Context& ctx, IRList& ir) {
 
   // JMP real
   ir_jmp.clear();
-  ir_jmp.emplace_back(cond.else_op, "LOOP_" + ctx.loop_label.top() + "_END");
+  ir_jmp.emplace_back(cond.else_op, ".L.LOOP_" + ctx.loop_label.top() + "_END");
 
   // DO (fake) real
   ctx_do_fake = ctx_cond;
@@ -449,7 +452,7 @@ void WhileStatement::generate_ir(Context& ctx, IRList& ir) {
   ir_continue.clear();
   ir_continue.emplace_back(OpCode::NOOP);
   IRList end;
-  end.emplace_back(OpCode::LABEL, "LOOP_" + ctx.loop_label.top() + "_END");
+  end.emplace_back(OpCode::LABEL, ".L.LOOP_" + ctx.loop_label.top() + "_END");
   ctx_do.loop_continue_symbol_snapshot.push({});
   ctx_do.loop_break_symbol_snapshot.push({});
   ctx_do.loop_continue_phi_move.push({});
@@ -484,7 +487,7 @@ void WhileStatement::generate_ir(Context& ctx, IRList& ir) {
       }
     }
   }
-  ir_do.emplace_back(OpCode::LABEL, "LOOP_" + ctx.loop_label.top() + "_DO");
+  ir_do.emplace_back(OpCode::LABEL, ".L.LOOP_" + ctx.loop_label.top() + "_DO");
   this->dostmt.generate_ir(ctx_do, ir_do);
   for (auto& i : ctx_do.loop_continue_phi_move.top()) {
     ir_do.emplace_back(OpCode::PHI_MOV, i.second,
@@ -511,7 +514,7 @@ void WhileStatement::generate_ir(Context& ctx, IRList& ir) {
   // CONTINUE real
   ctx_continue = ctx_do;
   ir_continue.emplace_back(OpCode::LABEL,
-                           "LOOP_" + ctx.loop_label.top() + "_CONTINUE");
+                           ".L.LOOP_" + ctx.loop_label.top() + "_CONTINUE");
   for (int i = 0; i < ctx_before.symbol_table.size(); i++) {
     for (const auto& symbol_before : ctx_before.symbol_table[i]) {
       const auto& symbo_continue =
@@ -524,7 +527,7 @@ void WhileStatement::generate_ir(Context& ctx, IRList& ir) {
     }
   }
   ir_continue.emplace_back(OpCode::JMP,
-                           "LOOP_" + ctx.loop_label.top() + "_BEGIN");
+                           ".L.LOOP_" + ctx.loop_label.top() + "_BEGIN");
 
   /////////////////////////////////////////////////////////
 
@@ -566,7 +569,7 @@ void WhileStatement::generate_ir(Context& ctx, IRList& ir) {
   ctx.end_scope();
 }
 
-void IfElseStatement::generate_ir(Context& ctx, IRList& ir) {
+void IfElseStatement::_generate_ir(Context& ctx, IRList& ir) {
   ctx.create_scope();
 
   auto id = std::to_string(ctx.get_id());
@@ -581,7 +584,7 @@ void IfElseStatement::generate_ir(Context& ctx, IRList& ir) {
     return;
   }
 
-  ir.emplace_back(cond.else_op, "IF_" + id + "_ELSE");
+  ir.emplace_back(cond.else_op, ".L.IF_" + id + "_ELSE");
 
   IRList ir_then, ir_else;
   Context ctx_then = ctx, ctx_else = ctx;
@@ -598,7 +601,7 @@ void IfElseStatement::generate_ir(Context& ctx, IRList& ir) {
   ctx.id = ctx_else.id;
 
   IRList end;
-  end.emplace_back(OpCode::LABEL, "IF_" + id + "_END");
+  end.emplace_back(OpCode::LABEL, ".L.IF_" + id + "_END");
 
   for (int i = 0; i < ctx_then.symbol_table.size(); i++) {
     for (auto& s : ctx_then.symbol_table[i]) {
@@ -618,8 +621,8 @@ void IfElseStatement::generate_ir(Context& ctx, IRList& ir) {
   }
 
   ir.splice(ir.end(), ir_then);
-  if (!ir_else.empty()) ir.emplace_back(OpCode::JMP, "IF_" + id + "_END");
-  ir.emplace_back(OpCode::LABEL, "IF_" + id + "_ELSE");
+  if (!ir_else.empty()) ir.emplace_back(OpCode::JMP, ".L.IF_" + id + "_END");
+  ir.emplace_back(OpCode::LABEL, ".L.IF_" + id + "_ELSE");
   ir.splice(ir.end(), ir_else);
   ir.splice(ir.end(), end);
 
@@ -639,7 +642,7 @@ void IfElseStatement::generate_ir(Context& ctx, IRList& ir) {
   ctx.end_scope();
 }
 
-void Assignment::generate_ir(Context& ctx, IRList& ir) {
+void Assignment::_generate_ir(Context& ctx, IRList& ir) {
   if (dynamic_cast<ArrayIdentifier*>(&this->lhs)) {
     auto rhs = this->rhs.eval_runtime(ctx, ir);
     dynamic_cast<ArrayIdentifier*>(&this->lhs)->store_runtime(rhs, ctx, ir);
@@ -681,10 +684,12 @@ void Assignment::generate_ir(Context& ctx, IRList& ir) {
   }
 }
 
-void AfterInc::generate_ir(Context& ctx, IRList& ir) {
+void AfterInc::_generate_ir(Context& ctx, IRList& ir) {
   auto n0 = new Number(1);
   auto n1 = new BinaryExpression(lhs, this->op, *n0);
   auto n2 = new Assignment(lhs, *n1);
+  n0->line = n1->line = n2->line = this->line;
+  n0->column = n1->column = n2->column = this->column;
   n2->generate_ir(ctx, ir);
   delete n2;
   delete n1;

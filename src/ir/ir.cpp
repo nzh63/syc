@@ -19,6 +19,8 @@
 
 #include <cassert>
 
+#include "ast/node.h"
+
 namespace syc::ir {
 OpName::OpName() : type(OpName::Type::Null) {}
 OpName::OpName(std::string name) : type(OpName::Type::Var), name(name) {}
@@ -48,40 +50,45 @@ bool OpName::operator==(const OpName& other) const {
 
 IR::IR(OpCode op_code, OpName dest, OpName op1, OpName op2, OpName op3,
        std::string label)
-    : op_code(op_code),
-      dest(dest),
-      op1(op1),
-      op2(op2),
-      op3(op3),
-      label(label) {}
+    : op_code(op_code), dest(dest), op1(op1), op2(op2), op3(op3), label(label) {
+  this->setup_file_postion();
+}
 IR::IR(OpCode op_code, OpName dest, OpName op1, OpName op2, std::string label)
     : op_code(op_code),
       dest(dest),
       op1(op1),
       op2(op2),
       op3(OpName()),
-      label(label) {}
+      label(label) {
+  this->setup_file_postion();
+}
 IR::IR(OpCode op_code, OpName dest, OpName op1, std::string label)
     : op_code(op_code),
       dest(dest),
       op1(op1),
       op2(OpName()),
       op3(OpName()),
-      label(label) {}
+      label(label) {
+  this->setup_file_postion();
+}
 IR::IR(OpCode op_code, OpName dest, std::string label)
     : op_code(op_code),
       dest(dest),
       op1(OpName()),
       op2(OpName()),
       op3(OpName()),
-      label(label) {}
+      label(label) {
+  this->setup_file_postion();
+}
 IR::IR(OpCode op_code, std::string label)
     : op_code(op_code),
       dest(OpName()),
       op1(OpName()),
       op2(OpName()),
       op3(OpName()),
-      label(label) {}
+      label(label) {
+  this->setup_file_postion();
+}
 bool IR::some(decltype(&syc::ir::OpName::is_var) callback,
               bool include_dest) const {
   return this->some([callback](OpName op) { return (op.*callback)(); },
@@ -243,5 +250,14 @@ void IR::print(std::ostream& out, bool verbose) const {
   });
   out << this->label;
   out << std::endl;
+}
+void IR::setup_file_postion() {
+  if (syc::ast::node::current()) {
+    this->line = syc::ast::node::current()->line;
+    this->column = syc::ast::node::current()->column;
+  } else {
+    this->line = 0;
+    this->column = 0;
+  }
 }
 }  // namespace syc::ir

@@ -17,7 +17,20 @@
  */
 #include "ast/node.h"
 
+#include <stack>
+
+#include "parser.hpp"
 namespace syc::ast::node {
+namespace {
+std::stack<BaseNode*> nodes;
+}
+BaseNode* current() {
+  if (nodes.empty())
+    return nullptr;
+  else
+    return nodes.top();
+}
+BaseNode::BaseNode() : line(yylloc.first_line), column(yylloc.first_column) {}
 BaseNode::~BaseNode() {}
 void BaseNode::print(int indentation, bool end, std::ostream& out) {
   this->print_indentation(indentation, end, out);
@@ -32,6 +45,31 @@ void BaseNode::print_indentation(int indentation, bool end, std::ostream& out) {
   else
     out << "├──";
 }
+void BaseNode::generate_ir(ir::Context& ctx, ir::IRList& ir) {
+  nodes.push(this);
+  this->_generate_ir(ctx, ir);
+  nodes.pop();
+}
+
+int Expression::eval(ir::Context& ctx) {
+  nodes.push(this);
+  auto ret = this->_eval(ctx);
+  nodes.pop();
+  return ret;
+}
+ir::OpName Expression::eval_runtime(ir::Context& ctx, ir::IRList& ir) {
+  nodes.push(this);
+  auto ret = this->_eval_runtime(ctx, ir);
+  nodes.pop();
+  return ret;
+};
+Expression::CondResult Expression::eval_cond_runtime(ir::Context& ctx,
+                                                     ir::IRList& ir) {
+  nodes.push(this);
+  auto ret = this->_eval_cond_runtime(ctx, ir);
+  nodes.pop();
+  return ret;
+};
 
 Identifier::Identifier(const std::string& name) : name(name) {}
 void Identifier::print(int indentation, bool end, std::ostream& out) {

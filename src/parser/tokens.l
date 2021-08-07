@@ -20,22 +20,36 @@
 #include "ast/node.h"
 #include "parser.hpp"
 
-#define SAVE_TOKEN  yylval.string = new std::string(yytext, yyleng)
-#define TOKEN(t)    (yylval.token = t)
-#define FIX_LINE    for (auto i : std::string(yytext_ptr)) { if (i == '\n') yylineno++; }
+int yycolumn = 1;
+
+#define SAVE_TOKEN     yylval.string = new std::string(yytext, yyleng)
+#define TOKEN(t)       (yylval.token = t)
+#define YY_USER_ACTION yylloc.first_line = yylineno;            \
+                       yylloc.first_column = yycolumn;          \
+                       for (auto i : std::string(yytext_ptr)) { \
+                           if (i == '\n') {                     \
+                               yylineno++;                      \
+                               yycolumn = 1;                    \
+                           } else {                             \
+                               yycolumn++;                      \
+                           }                                    \
+                       }                                        \
+                       yylloc.last_line = yylineno;             \
+                       yylloc.last_column = yycolumn - 1;
 %}
 
 %option noyywrap
 
 %%
 
-\/\/.*\n?                           FIX_LINE;
+\/\/.*\n?                           ;
 "/*"                        		{
                                         int c;
                                         while((c = yyinput()) != 0) {
-                                            if(c == '\n')
+                                            if(c == '\n') {
                                                 yylineno++;
-                                            else if(c == '*') {
+                                                yycolumn = 1;
+                                            } else if(c == '*') {
                                                 if((c = yyinput()) == '/')
                                                     break;
                                                 else
@@ -44,7 +58,7 @@
                                         }
                                     }
 [ ]                                 ;
-\n                                  yylineno++;
+\n                                  ;
 [\t\r]                              ;
 "if"                                return TOKEN(IF);
 "else"                              return TOKEN(ELSE);
@@ -56,9 +70,9 @@
 "const"                             return TOKEN(CONST);
 "int"                               return TOKEN(INT);
 "void"                              return TOKEN(VOID);
-"putf"[ \t\n]*"("                   FIX_LINE; yylval.string = new std::string("printf"); *yy_cp = yy_hold_char; yy_hold_char='(';yy_cp--; yyleng--; yy_c_buf_p--; return IDENTIFIER;
-"starttime"[ \t\n]*"("              FIX_LINE; yylval.string = new std::string("_sysy_starttime"); *yy_cp = yy_hold_char; yy_hold_char='(';yy_cp--; yyleng--; yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='E';yy_c_buf_p--; *yy_c_buf_p='N';yy_c_buf_p--; *yy_c_buf_p='I';yy_c_buf_p--; *yy_c_buf_p='L';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; return IDENTIFIER;
-"stoptime"[ \t\n]*"("               FIX_LINE; yylval.string = new std::string("_sysy_stoptime"); *yy_cp = yy_hold_char; yy_hold_char='(';yy_cp--; yyleng--; yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='E';yy_c_buf_p--; *yy_c_buf_p='N';yy_c_buf_p--; *yy_c_buf_p='I';yy_c_buf_p--; *yy_c_buf_p='L';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; return IDENTIFIER;
+"putf"[ \t\n]*"("                   yylval.string = new std::string("printf"); *yy_cp = yy_hold_char; yy_hold_char='(';yy_cp--; yyleng--; yy_c_buf_p--; return IDENTIFIER;
+"starttime"[ \t\n]*"("              yylval.string = new std::string("_sysy_starttime"); *yy_cp = yy_hold_char; yy_hold_char='(';yy_cp--; yyleng--; yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='E';yy_c_buf_p--; *yy_c_buf_p='N';yy_c_buf_p--; *yy_c_buf_p='I';yy_c_buf_p--; *yy_c_buf_p='L';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; return IDENTIFIER;
+"stoptime"[ \t\n]*"("               yylval.string = new std::string("_sysy_stoptime"); *yy_cp = yy_hold_char; yy_hold_char='(';yy_cp--; yyleng--; yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='E';yy_c_buf_p--; *yy_c_buf_p='N';yy_c_buf_p--; *yy_c_buf_p='I';yy_c_buf_p--; *yy_c_buf_p='L';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; return IDENTIFIER;
 "__LINE__"                          yylval.string = new std::string(std::to_string(yyget_lineno())); return INTEGER_VALUE;
 "_SYSY_N"                           yylval.string = new std::string(std::to_string(1024)); return INTEGER_VALUE;
 [a-zA-Z_][a-zA-Z0-9_]*              SAVE_TOKEN; return IDENTIFIER;

@@ -9,7 +9,7 @@ const TEST_PATH = path.join(__dirname, './functional_test');
 const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'syc-test-'));
 const ASM_TMP_FILE = path.join(TMP_DIR, '${name}.s');
 const EXE_TMP_FILE = path.join(TMP_DIR, '${name}.out');
-const OPT = ['-O0', '-O2'];
+const OPT = ['-O0', '-O0 -g', '-O2', '-O2 -g'];
 const WORKS = 8;
 
 let passCount = 0, failCount = 0;
@@ -26,10 +26,10 @@ process.on('exit', () => {
 
 async function doTest(path, name, opt = '-O0') {
     const exec = promisify(child_process.exec);
-    let output = '', stderr = '';
+    let output = '', stderr = '', ans = '';
     try {
-        await exec(`${EXE_PATH} ${path}.sy ${opt} -o ${ASM_TMP_FILE.replace('${name}', name + opt)}`, { encoding: 'utf8' });
-        await exec(`arm-linux-gnueabihf-gcc -march=armv7-a ${ASM_TMP_FILE.replace('${name}', name + opt)} -L. -lsysy -o ${EXE_TMP_FILE.replace('${name}', name + opt)} -static -g`, { encoding: 'utf8', cwd: __dirname });
+        await exec(`${EXE_PATH} ${path}.sy ${opt} -o "${ASM_TMP_FILE.replace('${name}', name + opt)}"`, { encoding: 'utf8' });
+        await exec(`arm-linux-gnueabihf-gcc -march=armv7-a "${ASM_TMP_FILE.replace('${name}', name + opt)}" -L. -lsysy -o "${EXE_TMP_FILE.replace('${name}', name + opt)}" -static -g`, { encoding: 'utf8', cwd: __dirname });
         let exe = child_process.spawn('qemu-arm-static', [EXE_TMP_FILE.replace('${name}', name + opt)], { encoding: 'utf8' });
         try { exe.stdin.write(await fs.promises.readFile(path + '.in', { encoding: 'utf8' }) + '\n'); } catch (e) { }
         exe.stdout.on('data', (data) => {
@@ -54,13 +54,6 @@ async function doTest(path, name, opt = '-O0') {
     } catch (e) {
         output += (e.stdout + '\n' + e.stderr) || JSON.stringify(e);
     }
-    // try {
-    //     await Promise.all([
-    //         fs.promises.unlink(ASM_TMP_FILE.replace('${name}', name)),
-    //         fs.promises.unlink(EXE_TMP_FILE.replace('${name}', name)),
-    //     ]);
-    // } catch (e) { }
-    let ans = '';
     try {
         ans += await fs.promises.readFile(path + '.out', { encoding: 'utf8' });
     } catch (e) { }
@@ -87,9 +80,7 @@ async function doTest(path, name, opt = '-O0') {
             while (1) {
                 if (tasks.length == 0) break;
                 const p = tasks.shift();
-                const tests = [];
-                for (const opt of OPT)
-                    tests.push(await doTest(p, path.basename(p), opt));
+                const tests = await Promise.all(OPT.map(opt => doTest(p, path.basename(p), opt)));
                 if (tests.every(i => i.pass)) {
                     passCount++;
                     console.log(` \x1B[32m✓\x1B[0m ${p}.sy`);

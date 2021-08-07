@@ -16,21 +16,57 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 %{
-#include "ast/node.h"
-#include <cstdio>
+#include <iostream>
 #include <cstdlib>
 #include "ast/generate/generate.h"
+#include "ast/node.h"
+#include "config.h"
+#include "parser.hpp"
 using syc::ast::root; /* the top level root node of our final AST */
 extern int yydebug;
 
 extern int yylex();
 extern int yyget_lineno();
 extern int yylex_destroy();
-void yyerror(const char *s) { std::printf("Error(line: %d): %s\n", yyget_lineno(), s); yylex_destroy(); if (!yydebug) std::exit(1); }
+void yyerror(const char *s) {
+    std::cerr << syc::config::input_filename << ':'<< yylloc.first_line << ':'
+              << yylloc.first_column << ": error: " << s << std::endl;
+    yylex_destroy();
+    if (!yydebug) std::exit(1);
+}
 #define YYERROR_VERBOSE true
+#ifdef YYDEBUG
+#undef YYDEBUG
+#endif
 #define YYDEBUG 1
+#define YYLLOC_DEFAULT(Current, Rhs, N)                               \
+    do {                                                              \
+        if (N) {                                                      \
+            (Current).first_line   = YYRHSLOC (Rhs, 1).first_line;    \
+            (Current).first_column = YYRHSLOC (Rhs, 1).first_column;  \
+            (Current).last_line    = YYRHSLOC (Rhs, N).last_line;     \
+            (Current).last_column  = YYRHSLOC (Rhs, N).last_column;   \
+        } else {                                                      \
+            (Current).first_line   = (Current).last_line   =          \
+              YYRHSLOC (Rhs, 0).last_line;                            \
+            (Current).first_column = (Current).last_column =          \
+              YYRHSLOC (Rhs, 0).last_column;                          \
+        }                                                             \
+        yylloc = Current;                                             \
+    } while (0)
+#define yytnamerr(_yyres, _yystr)                                         \
+        ([](char* yyres, const char* yystr) {                             \
+            if (*yystr == '"') {                                          \
+                if (yyres) return yystpcpy(yyres, yystr + 1) - yyres - 1; \
+                else return yystrlen(yystr) - 2;                          \
+            } else {                                                      \
+                if (yyres) return yystpcpy(yyres, yystr) - yyres;         \
+                else return yystrlen(yystr);                              \
+            }                                                             \
+        })(_yyres, _yystr)
 %}
 
+%locations
 %union {
     int token;
     syc::ast::node::Identifier* ident;
@@ -52,16 +88,17 @@ void yyerror(const char *s) { std::printf("Error(line: %d): %s\n", yyget_lineno(
     std::string *string;
 }
 
-%token <string> INTEGER_VALUE IDENTIFIER
-%token <token> IF ELSE WHILE FOR BREAK CONTINUE RETURN
-%token <token> CONST INT VOID
-%token <token> ASSIGN EQ NE LT LE GT GE
-%token <token> AND OR
-%token <token> LPAREN RPAREN LBRACE RBRACE LSQUARE RSQUARE
+%token <string> INTEGER_VALUE "integer" IDENTIFIER "identifier"
+%token <token> IF "‘if’" ELSE "‘else’" WHILE "‘while’" FOR "‘for’"
+%token <token> BREAK "‘break’" CONTINUE "‘continue’" RETURN "‘return’"
+%token <token> CONST "‘const’" INT "‘int’" VOID "‘void’"
+%token <token> ASSIGN "‘=’" EQ "‘==’" NE "‘!=’" LT "‘<’" LE "‘<=’" GT  "‘>’" GE "‘>=’"
+%token <token> AND "‘&&’" OR "‘||’"
+%token <token> LPAREN "‘(’" RPAREN "‘)’" LBRACE "‘{’" RBRACE "‘}’" LSQUARE "‘[’" RSQUARE "‘]’"
 
-%token <token> DOT COMMA SEMI
-%token <token> PLUSPLUS MINUSMINUS
-%token <token> PLUS MINUS MUL DIV MOD NOT
+%token <token> DOT "‘.’" COMMA "‘,’" SEMI "‘;’"
+%token <token> PLUSPLUS "‘++’" MINUSMINUS "‘--’"
+%token <token> PLUS "‘+’" MINUS "‘-’" MUL "‘*’" DIV "‘/’" MOD "‘%’" NOT "‘!’"
 
 %left COMMA
 %left ASSIGN

@@ -27,6 +27,8 @@ std::ostream* output = &std::cout;
 bool print_ast = false;
 bool print_ir = false;
 bool print_log = false;
+bool enable_dwarf2 = false;
+std::string input_filename = "<stdin>";
 
 void parse_arg(int argc, char** argv) {
   yydebug = 0;
@@ -36,6 +38,8 @@ void parse_arg(int argc, char** argv) {
   print_ast = false;
   print_ir = false;
   print_log = false;
+  enable_dwarf2 = false;
+  input_filename = "stdin";
   int s = 0;
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] == '-') {
@@ -55,6 +59,8 @@ void parse_arg(int argc, char** argv) {
         print_ir = true;
       else if (std::string("-print_log") == argv[i])
         print_log = true;
+      else if (std::string("-g") == argv[i])
+        enable_dwarf2 = true;
     } else {
       if (s == 1) {
         if (std::string("-") == argv[i])
@@ -62,10 +68,13 @@ void parse_arg(int argc, char** argv) {
         else
           output = new std::ofstream(argv[i], std::ofstream::out);
       } else if (s == 0) {
-        if (std::string("-") == argv[i])
+        if (std::string("-") == argv[i]) {
           input = stdin;
-        else
+          input_filename = "<stdin>";
+        } else {
           input = fopen(argv[i], "r");
+          input_filename = argv[i];
+        }
       }
       s = 0;
     }

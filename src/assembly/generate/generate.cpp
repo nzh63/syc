@@ -30,6 +30,12 @@ using namespace std;
 
 namespace syc::assembly {
 namespace {
+void write_dwarf2(ir::IR ir, ostream& out) {
+  if (config::enable_dwarf2) {
+    out << ".loc 1 " << ir.line << " " << ir.column << endl;
+  }
+}
+
 constexpr bitset<Context::reg_count> non_volatile_reg = 0b111111110000;
 
 void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
@@ -137,6 +143,7 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
   // 翻译
   for (auto it = begin; it != end; it++) {
     auto& ir = *it;
+    write_dwarf2(ir, out);
     auto& stack_size = ctx.stack_size;
     log_out << "#";
     ir.print(log_out);
@@ -535,16 +542,22 @@ void generate(ir::IRList& irs, ostream& out, ostream& log_out) {
     movt \reg, #:upper16:\val
 .endm
 )" << endl;
+  if (config::enable_dwarf2) {
+    out << ".file 1 \"" << config::input_filename << "\"" << endl;
+  }
   ir::IRList::iterator function_begin_it;
   for (auto outter_it = irs.begin(); outter_it != irs.end(); outter_it++) {
     auto& ir = *outter_it;
     if (ir.op_code == ir::OpCode::DATA_BEGIN) {
+      write_dwarf2(ir, out);
       out << ".data" << endl;
       out << ".global " << Context::rename(ir.label) << endl;
       out << Context::rename(ir.label) << ":" << endl;
     } else if (ir.op_code == ir::OpCode::DATA_WORD) {
+      write_dwarf2(ir, out);
       out << ".word " << ir.dest.value << endl;
     } else if (ir.op_code == ir::OpCode::DATA_SPACE) {
+      write_dwarf2(ir, out);
       out << ".space " << ir.dest.value << endl;
     } else if (ir.op_code == ir::OpCode::DATA_END) {
       // do nothing

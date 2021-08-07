@@ -90,6 +90,7 @@ enum class OpCode {
 };
 class IR {
  public:
+  int line, column;
   OpCode op_code;
   std::string label;
   OpName op1, op2, op3, dest;
@@ -108,6 +109,9 @@ class IR {
   void forEachOp(std::function<void(const syc::ir::OpName&)> callback,
                  bool include_dest = true) const;
   void print(std::ostream& out = std::cerr, bool verbose = false) const;
+
+ protected:
+  void setup_file_postion();
 };
 
 using IRList = std::list<IR>;
