@@ -47,28 +47,48 @@ void BaseNode::print_indentation(int indentation, bool end, std::ostream& out) {
 }
 void BaseNode::generate_ir(ir::Context& ctx, ir::IRList& ir) {
   nodes.push(this);
-  this->_generate_ir(ctx, ir);
-  nodes.pop();
+  try {
+    this->_generate_ir(ctx, ir);
+    nodes.pop();
+  } catch (std::exception e) {
+    nodes.pop();
+    throw e;
+  }
 }
 
 int Expression::eval(ir::Context& ctx) {
   nodes.push(this);
-  auto ret = this->_eval(ctx);
-  nodes.pop();
-  return ret;
+  try {
+    auto ret = this->_eval(ctx);
+    nodes.pop();
+    return ret;
+  } catch (std::exception e) {
+    nodes.pop();
+    throw e;
+  }
 }
 ir::OpName Expression::eval_runtime(ir::Context& ctx, ir::IRList& ir) {
   nodes.push(this);
-  auto ret = this->_eval_runtime(ctx, ir);
-  nodes.pop();
-  return ret;
+  try {
+    auto ret = this->_eval_runtime(ctx, ir);
+    nodes.pop();
+    return ret;
+  } catch (std::exception e) {
+    nodes.pop();
+    throw e;
+  }
 };
 Expression::CondResult Expression::eval_cond_runtime(ir::Context& ctx,
                                                      ir::IRList& ir) {
   nodes.push(this);
-  auto ret = this->_eval_cond_runtime(ctx, ir);
-  nodes.pop();
-  return ret;
+  try {
+    auto ret = this->_eval_cond_runtime(ctx, ir);
+    nodes.pop();
+    return ret;
+  } catch (std::exception e) {
+    nodes.pop();
+    throw e;
+  }
 };
 
 Identifier::Identifier(const std::string& name) : name(name) {}

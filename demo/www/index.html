@@ -43,6 +43,8 @@
                 <h1>SyC Live Demo</h1>
                 <el-switch v-model="optimization" active-text="Optimization">
                 </el-switch>
+                <el-switch v-model="dwarf2" active-text="DWARF2">
+                </el-switch>
                 <el-button @click="compile" :disabled="!!status">{{status||'compile'}}</el-button>
             </el-header>
             <el-main>
@@ -108,6 +110,7 @@
                 status: 'Downloading...',
                 activeNames: ['3'],
                 optimization: true,
+                dwarf2: false,
                 code:
                     `const int N = 1024;
 void mm(int n, int A[][N], int B[][N], int C[][N]) {
@@ -205,6 +208,7 @@ int main(){
                     args = ['/' + filename, '-print_ast', '-print_ir', '-print_log'];
                     if (this.optimization) args.push('-O2');
                     else args.push('-O0');
+                    if (this.dwarf2) args.push('-g')
                     Module.callMain(args);
                     Module.FS.unlink('/' + filename);
                 },
