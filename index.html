@@ -210,8 +210,12 @@ int main(){
                     if (this.optimization) args.push('-O2');
                     else args.push('-O0');
                     if (this.dwarf2) args.push('-g')
-                    Module.callMain(args);
+                    const ret = Module.callMain(args);
                     Module.FS.unlink('/' + filename);
+                    if (ret !== 0) {
+                        this.ast = [{ label: 'Error' }];
+                        this.assembly = this.ir;
+                    }
                 },
                 addAstNode(msg) {
                     let level = msg.match(/│|└|├/g).length;
