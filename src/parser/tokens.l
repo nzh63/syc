@@ -20,6 +20,7 @@
 #include "ast/node.h"
 #include "parser.hpp"
 
+void yyerror(const char *s);
 int yycolumn = 1;
 
 #define SAVE_TOKEN     yylval.string = new std::string(yytext, yyleng)
@@ -110,6 +111,6 @@ int yycolumn = 1;
 "%"                                 return TOKEN(MOD);
 "!"                                 return TOKEN(NOT);
 
-.                                   printf("Unknown token: %s\n", yytext); yyterminate();
+.                                   yyerror((std::string("Unknown token: ") + yytext).c_str()); yyterminate();
 
 %%

@@ -202,15 +202,20 @@ int main(){
                     this.ast = [{ label: '...' }];
                     this.cur = this.ast[0];
                     this.curLevel = 1;
-                    const filename = 'input' + Math.random();
+                    const filename = 'input';
                     this.code = this.editor?.getValue() ?? this.code;
+                    try { Module.FS.unlink('/' + filename); } catch (e) { }
                     Module.FS.createDataFile('/', filename, this.code, 1, 1, 1);
                     args = ['/' + filename, '-print_ast', '-print_ir', '-print_log'];
                     if (this.optimization) args.push('-O2');
                     else args.push('-O0');
                     if (this.dwarf2) args.push('-g')
-                    Module.callMain(args);
+                    const ret = Module.callMain(args);
                     Module.FS.unlink('/' + filename);
+                    if (ret !== 0) {
+                        this.ast = [{ label: 'Error' }];
+                        this.assembly = this.ir;
+                    }
                 },
                 addAstNode(msg) {
                     let level = msg.match(/│|└|├/g).length;
