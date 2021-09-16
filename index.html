@@ -202,8 +202,9 @@ int main(){
                     this.ast = [{ label: '...' }];
                     this.cur = this.ast[0];
                     this.curLevel = 1;
-                    const filename = 'input' + Math.random();
+                    const filename = 'input';
                     this.code = this.editor?.getValue() ?? this.code;
+                    try { Module.FS.unlink('/' + filename); } catch (e) { }
                     Module.FS.createDataFile('/', filename, this.code, 1, 1, 1);
                     args = ['/' + filename, '-print_ast', '-print_ir', '-print_log'];
                     if (this.optimization) args.push('-O2');
