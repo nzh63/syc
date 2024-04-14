@@ -2,12 +2,12 @@
 <html>
 
 <head>
-    <title>SyC - A Compiler for SysY</title>
+    <title>SyC - Optimizing Compiler for SysY (C Subset)</title>
     <meta charset="utf-8">
-    <script src="https://cdn.bootcdn.net/ajax/libs/vue/2.6.12/vue.min.js"></script>
-    <script src="https://cdn.bootcdn.net/ajax/libs/element-ui/2.15.0/index.min.js"></script>
-    <link href="https://cdn.bootcdn.net/ajax/libs/element-ui/2.15.0/theme-chalk/index.min.css" rel="stylesheet">
-    <script src="https://cdn.bootcdn.net/ajax/libs/monaco-editor/0.23.0/min/vs/loader.min.js"></script>
+    <script src="https://unpkg.com/vue@2.6.12/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.0/lib/index.js"></script>
+    <link href="https://unpkg.com/element-ui@2.15.0/lib/theme-chalk/index.css" rel="stylesheet">
+    <script src="https://unpkg.com/monaco-editor@0.23.0/min/vs/loader.js"></script>
     <style>
         .el-divider--vertical {
             height: auto;
@@ -40,7 +40,7 @@
     <div id="app">
         <el-container>
             <el-header height="auto" style="text-align:center">
-                <h1>SyC Live Demo</h1>
+                <h1>SyC Online Demo</h1>
                 <el-switch v-model="optimization" active-text="Optimization">
                 </el-switch>
                 <el-switch v-model="dwarf2" active-text="DWARF2">
@@ -176,14 +176,14 @@ int main(){
                 }
             },
             mounted() {
-                require.config({ paths: { 'vs': 'https://cdn.bootcdn.net/ajax/libs/monaco-editor/0.23.0/min/vs' } });
+                require.config({ paths: { 'vs': 'https://unpkg.com/monaco-editor@0.23.0/min/vs' } });
                 window.MonacoEnvironment = {
                     getWorkerUrl: function (workerId, label) {
                         return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
                             self.MonacoEnvironment = {
-                            baseUrl: 'https://cdn.bootcdn.net/ajax/libs/monaco-editor/0.23.0/min'
+                            baseUrl: 'https://unpkg.com/monaco-editor@0.23.0/min'
                             };
-                            importScripts('https://cdn.bootcdn.net/ajax/libs/monaco-editor/0.23.0/min/vs/base/worker/workerMain.js');`
+                            importScripts('https://unpkg.com/monaco-editor@0.23.0/min/vs/base/worker/workerMain.js');`
                         )}`;
                     }
                 };
