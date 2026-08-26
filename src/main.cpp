@@ -15,41 +15,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include <iostream>
-#include <sstream>
+#include "driver.h"
 
-#include "assembly/generate/generate.h"
-#include "assembly/optimize/optimize.h"
-#include "ast/generate/generate.h"
-#include "config.h"
-#include "ir/generate/generate.h"
-#include "ir/optimize/optimize.h"
-
-int main(int argc, char** argv) {
-  using namespace syc;
-  config::parse_arg(argc, argv);
-
-  auto* root = syc::ast::generate(config::input);
-  if (config::print_ast) root->print();
-
-  auto ir = syc::ir::generate(root);
-  if (config::optimize_level > 0) {
-    syc::ir::optimize(ir);
-  }
-  if (config::print_ir)
-    for (auto& i : ir) i.print(std::cerr, true);
-
-  std::stringstream buffer;
-  if (config::print_log) {
-    syc::assembly::generate(ir, buffer, buffer);
-  } else {
-    syc::assembly::generate(ir, buffer);
-  }
-  if (config::optimize_level > 0) {
-    syc::assembly::optimize(buffer, *config::output);
-  } else {
-    *config::output << buffer.str();
-  }
-
-  if (config::output != &std::cout) delete config::output;
-};
+int main(int argc, char** argv) { return syc::compile_main(argc, argv); }

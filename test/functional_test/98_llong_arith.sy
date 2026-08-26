@@ -1,0 +1,25 @@
+int main() {
+  long long a = 123456789012345LL;
+  long long b = 98765432109876LL;
+  long long c = a + b;
+  putint(c / 1000000);
+  putch(10);
+  long long d = a - b;
+  putint(d / 1000000);
+  putch(10);
+  long long e = a * 1000LL;
+  putint(e / 1000000000000LL);
+  putch(10);
+  long long mx = 9223372036854775807LL;
+  long long mn = -9223372036854775807LL - 1LL;
+  putint(mx % 1000000007LL);
+  putch(10);
+  putint(mn / 4294967296LL);
+  putch(10);
+  if (mn / -1LL == mn) putch(84); else putch(70);
+  putch(10);
+  long long wrap = mx + 1LL;
+  if (wrap == mn) putch(84); else putch(70);
+  putch(10);
+  return 0;
+}

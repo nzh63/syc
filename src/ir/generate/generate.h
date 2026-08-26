@@ -18,8 +18,9 @@
 #pragma once
 
 #include "ast/node.h"
+#include "config.h"
 #include "ir/ir.h"
 
 namespace syc::ir {
-IRList generate(syc::ast::node::Root* root);
+IRList generate(syc::ast::node::Root* root, const syc::Config& cfg);
 }  // namespace syc::ir

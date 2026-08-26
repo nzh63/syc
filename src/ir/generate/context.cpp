@@ -20,14 +20,19 @@
 #include <exception>
 
 namespace syc::ir {
-VarInfo::VarInfo(std::string name, bool is_array, std::vector<int> shape)
-    : name(name), shape(shape), is_array(is_array) {}
-ConstInfo::ConstInfo(std::vector<int> value, bool is_array,
-                     std::vector<int> shape)
-    : value(value), shape(shape), is_array(is_array) {}
-ConstInfo::ConstInfo(int value) : value({value}), shape({}), is_array(false) {}
+VarInfo::VarInfo(std::string name, bool is_array, std::vector<int> shape,
+                 types::TypeId ty)
+    : name(name), shape(shape), is_array(is_array), ty(ty) {}
+ConstInfo::ConstInfo(std::vector<std::int64_t> value, bool is_array,
+                     std::vector<int> shape, types::TypeId ty)
+    : value(value), shape(shape), is_array(is_array), ty(ty) {}
+ConstInfo::ConstInfo(std::int64_t value)
+    : value({value}), shape({}), is_array(false),
+      ty(types::TypeId::INT) {}
 
-Context::Context() {
+Context::Context()
+    : string_pool(std::make_shared<std::unordered_map<std::string, std::string>>()),
+      string_list(std::make_shared<std::vector<std::pair<std::string, std::string>>>()) {
   this->insert_symbol("_sysy_l1", VarInfo("@&^_sysy_l1", true, {1024}));
   this->insert_symbol("_sysy_l2", VarInfo("@&^_sysy_l2", true, {1024}));
   this->insert_symbol("_sysy_h", VarInfo("@&^_sysy_h", true, {1024}));
@@ -35,6 +40,9 @@ Context::Context() {
   this->insert_symbol("_sysy_s", VarInfo("@&^_sysy_s", true, {1024}));
   this->insert_symbol("_sysy_us", VarInfo("@&^_sysy_us", true, {1024}));
   this->insert_symbol("_sysy_idx", VarInfo("@^_sysy_idx", false));
+  // 内建库函数签名：printf/putf 为变参（浮点实参按默认实参提升传位模式）
+  this->function_table["printf"] = FuncSig{types::TypeInfo{types::TypeId::INT}, {}, true};
+  this->function_table["putf"] = FuncSig{types::TypeInfo{types::TypeId::INT}, {}, true};
 }
 
 unsigned Context::get_id() { return ++id; }
@@ -88,4 +96,23 @@ bool Context::is_global() {
   return symbol_table.size() == 1 && const_table.size() == 1;
 }
 bool Context::in_loop() { return !loop_label.empty(); }
+
+void Context::insert_function(const std::string& name, const FuncSig& sig) {
+  this->function_table.insert_or_assign(name, sig);
+}
+
+const FuncSig* Context::find_function(const std::string& name) const {
+  auto find = this->function_table.find(name);
+  if (find == this->function_table.end()) return nullptr;
+  return &find->second;
+}
+
+std::string Context::insert_string(const std::string& content) {
+  auto find = this->string_pool->find(content);
+  if (find != this->string_pool->end()) return find->second;
+  std::string name = "@&^.L.str" + std::to_string(this->string_list->size());
+  this->string_pool->insert({content, name});
+  this->string_list->push_back({name, content});
+  return name;
+}
 }  // namespace syc::ir

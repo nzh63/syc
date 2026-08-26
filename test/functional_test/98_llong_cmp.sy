@@ -1,0 +1,27 @@
+int main() {
+  long long a = -9223372036854775807LL - 1LL;
+  long long b = 9223372036854775807LL;
+  unsigned long long ua = 18446744073709551615ULL;
+  unsigned long long ub = 0ULL;
+  if (a < b) putch(84); else putch(70);
+  putch(10);
+  if (ua > ub) putch(84); else putch(70);
+  putch(10);
+  if (a < ua) putch(84); else putch(70);
+  putch(10);
+  if (-5LL < 3LL) putch(84); else putch(70);
+  putch(10);
+  if (ub == 0ULL) putch(84); else putch(70);
+  putch(10);
+  if (a) putch(84); else putch(70);
+  putch(10);
+  if (!ub) putch(84); else putch(70);
+  putch(10);
+  if (a && 1) putch(84); else putch(70);
+  putch(10);
+  if (0LL || 1) putch(84); else putch(70);
+  putch(10);
+  if (4294967296LL) putch(84); else putch(70);
+  putch(10);
+  return 0;
+}

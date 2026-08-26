@@ -1,0 +1,26 @@
+int main() {
+  int lo = getint();
+  int hi = getint();
+  long long l = hi;
+  l = l * 4294967296LL;
+  long long lu = lo;
+  if (lu < 0LL) lu = lu + 4294967296LL;
+  l = l + lu;
+  putint(l / 1000000000LL);
+  putch(10);
+  putint(l % 10LL);
+  putch(10);
+  long long twice = l * 2LL;
+  putint(twice / 4294967296LL);
+  putch(10);
+  int n = getint();
+  long long acc = 0LL;
+  int i = 0;
+  while (i < n) {
+    acc = acc + l;
+    i = i + 1;
+  }
+  putint(acc / 4294967296LL);
+  putch(10);
+  return 0;
+}

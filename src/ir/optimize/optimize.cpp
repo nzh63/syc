@@ -35,9 +35,10 @@ void optimize(IRList &ir) {
 }
 
 void optimize_loop_ir(IRList &ir_before, IRList &ir_cond, IRList &ir_jmp,
-                      IRList &ir_do, IRList &ir_continue) {
+                      IRList &ir_do, IRList &ir_continue,
+                      const syc::Config &cfg) {
   using namespace syc::ir::passes;
-  if (config::optimize_level > 0) {
+  if (cfg.optimize_level > 0) {
     while (loop_invariant_code_motion(ir_before, ir_cond, ir_jmp, ir_do,
                                       ir_continue))
       ;

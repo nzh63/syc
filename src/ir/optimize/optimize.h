@@ -16,11 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include "config.h"
+#include "config.h"
 #include "ir/ir.h"
 
 namespace syc::ir {
 void optimize(IRList &ir);
 
 void optimize_loop_ir(IRList &ir_before, IRList &ir_cond, IRList &ir_jmp,
-                      IRList &ir_do, IRList &ir_continue);
+                      IRList &ir_do, IRList &ir_continue,
+                      const syc::Config &cfg);
 }  // namespace syc::ir

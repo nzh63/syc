@@ -38,13 +38,21 @@ class Context {
   std::ostream& log_out;
 
   ir::IRList* irs;
-  // stack_size[0]: 暂未使用
-  // stack_size[1]: 保护现场 // 顺序为 r14(lr), r4, r5, ..., r11
+  // stack_size[0]: VFP 栈参数区（浮点实参溢出到栈的字数 * 4）
+  // stack_size[1]: 保护现场 // 顺序为 r14(lr), r4, r5, ..., r11, s16..s27
   // stack_size[2]: 寄存器溢出
-  // stack_size[4]: 函数调用
+  // stack_size[3]: 核心寄存器函数调用实参
   std::array<int, 4> stack_size{0, 4, 0, 0};
   ir::IRList::iterator function_begin_it;
   std::unordered_map<std::string, int> stack_offset_map;
+  // 宽度 8（long long）的 IR 名字集合：这些值占用寄存器对
+  // （低半用本名，高半用 hi_name(name)），由函数 IR 预扫描填充
+  std::unordered_map<std::string, int> var_width;
+  static std::string hi_name(const std::string& name);
+  bool is_wide(const std::string& name) const;
+  void mark_wide(const std::string& name);
+  // 64 位比较谓词合成用的内部标签计数（需程序内唯一）
+  int wide_label_id = 0;
   // 获取每一条it对应时间戳
   std::unordered_map<ir::IR*, int> ir_to_time;
   // var定义的时间戳
@@ -63,6 +71,42 @@ class Context {
   std::unordered_map<std::string, int> var_to_reg = {
       {"$arg0", 0}, {"$arg1", 1}, {"$arg2", 2}, {"$arg3", 3}};
   std::unordered_map<int, std::string> reg_to_var;
+
+  // ── VFP（浮点）寄存器分配 ─────────────────────────────────────
+  // 统一 32 个单精度寄存器 s0-s31（dN = s2N:s2N+1）；s0-s15 caller-saved，
+  // s16-s27 callee-saved，s28-s31 保留为指令选择的草稿寄存器。
+  // double 以偶对齐的连续两个 s 寄存器（即 dN）为分配单位。
+  static constexpr int freg_count = 32;
+  static constexpr int freg_allocatable = 28;  // s0-s27 参与分配
+  enum class FpClass { NONE, F32, F64 };
+  // 浮点变量类别：由函数 IR 预扫描按定义 IR 的 ty 填充
+  std::unordered_map<std::string, FpClass> var_fp;
+  FpClass fp_class(const std::string& name) const;
+  bool is_fpreg(const std::string& name) const;
+  void mark_fp(const std::string& name, types::TypeId ty);
+  std::bitset<freg_count> savable_freg = 0b00001111111111110000000000000000;
+  std::bitset<freg_count> used_freg = 0;
+  std::unordered_map<std::string, int> var_to_freg;
+  std::unordered_map<int, std::string> freg_to_var;
+  // VFP 栈参数字数（映射进 stack_size[0]）
+  int fstack_arg_words = 0;
+
+  bool var_in_freg(std::string name);
+  // 寻找空闲 VFP 寄存器（dbl 时返回偶数序号，即 dN 的低单精度序号）
+  int find_free_freg(bool dbl, int begin = 0);
+  // 获取寄存器，必要时回收 callee-saved 或溢出占用者
+  int get_new_freg(bool dbl, int begin = 0);
+  void overflow_fvar(std::string name);
+  int get_new_freg_for(std::string name, int begin = 0);
+  int get_specified_freg_for(std::string name, int reg_id);
+  void expire_old_freg_intervals(int cur_time);
+
+  // 浮点装载：把 op1（VFP 寄存器 / 溢出槽 / $fargN / 全局标量 / 立即数
+  // 位模式）装到目标单精度（dbl 时为双精度）寄存器；已在位则不发射
+  void load_freg(int sidx, bool dbl, ir::OpName op, std::ostream& out);
+  // 浮点存放：把 sidx 寄存器的值写到 dest（VFP 寄存器 / 溢出槽 / 全局）
+  void store_freg_dest(int sidx, bool dbl, const std::string& name,
+                       std::ostream& out);
 
   bool has_function_call = false;
 
@@ -114,9 +158,14 @@ class Context {
   int get_specified_reg_for(std::string name, int reg_id);
 
   // 加载操作
-  void load_imm(std::string reg, int value, std::ostream& out);
+  void load_imm(std::string reg, std::int64_t value, std::ostream& out);
 
   void load(std::string reg, ir::OpName op, std::ostream& out);
+
+  // 装载 64 位值的某一半到寄存器（half: 0=低 32 位, 1=高 32 位）。
+  // 支持 64 位立即数、局部变量（高半为独立分配的 #h 名字）、
+  // 全局变量（高半位于 +4 地址）以及 $argN 寄存器/栈对。
+  void load_half(std::string reg, ir::OpName op, int half, std::ostream& out);
 
   void store_to_stack_offset(std::string reg, int offset, std::ostream& out,
                              std::string op = "STR");

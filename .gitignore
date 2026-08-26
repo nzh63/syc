@@ -1,4 +1,5 @@
 build/**
+external/
 !.gitkeep
 demo/www/syc.js
 demo/www/syc.wasm

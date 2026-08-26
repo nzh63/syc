@@ -1,0 +1,53 @@
+// 浮点函数参数/返回值、全局变量与数组
+float fs = 0.0f;
+double sumd = 0.0;
+float farr[4];
+double darr[3];
+
+float mul2(float x) {
+  return x * 2.0f;
+}
+
+double add4(int a, float b, double c, int d, float e) {
+  return a + b + c + d + e;
+}
+
+float sumf(float a[], int n) {
+  float s = 0.0f;
+  int i = 0;
+  while (i < n) {
+    s = s + a[i];
+    i = i + 1;
+  }
+  return s;
+}
+
+double loopd(int n) {
+  double s = 0.0;
+  int i = 0;
+  while (i < n) {
+    s = s + 0.5;
+    i = i + 1;
+  }
+  return s;
+}
+
+int main() {
+  putf("%f\n", mul2(1.25f));
+  putf("%f\n", add4(1, 0.5f, 2.25, 3, 0.25f));
+  farr[0] = 0.5f;
+  farr[1] = 1.0f;
+  farr[2] = 1.5f;
+  farr[3] = 2.0f;
+  putf("%f\n", sumf(farr, 4));
+  putf("%f\n", loopd(10));
+  fs = mul2(2.5f);
+  putf("%f\n", fs);
+  sumd = add4(0, 0.0f, 1.5, 0, 0.0f);
+  putf("%f\n", sumd);
+  darr[0] = 0.25;
+  darr[1] = darr[0] + 0.25;
+  darr[2] = darr[1] + 0.25;
+  putf("%f %f %f\n", darr[0], darr[1], darr[2]);
+  return 0;
+}

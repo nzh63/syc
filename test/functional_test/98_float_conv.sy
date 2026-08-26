@@ -1,0 +1,32 @@
+// 浮点与整数之间的转换语义
+int main() {
+  int i = 42;
+  float f = i;
+  putf("%f\n", f);
+  double d = -3;
+  putf("%f\n", d);
+  int j = 7.9;
+  putf("%d\n", j);
+  int k = -7.9;
+  putf("%d\n", k);
+  float big = 3.5e2f;
+  int m = big;
+  putf("%d\n", m);
+  char c = 65.9;
+  putf("%d\n", c);
+  short s = 1234.89;
+  putf("%d\n", s);
+  unsigned u = 2.5e9f;
+  putf("%u\n", u);
+  float nf = -0.5f;
+  int nn = nf;
+  putf("%d\n", nn);
+  double pd = 2.75;
+  float pf = pd;
+  putf("%f\n", pf);
+  putf("%f\n", 1.0 / 3.0);
+  float third = 1.0f / 3.0f;
+  putf("%f\n", third);
+  putf("%.7f\n", third);
+  return 0;
+}

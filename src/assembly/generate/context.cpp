@@ -25,7 +25,10 @@ namespace syc::assembly {
 using namespace std;
 Context::Context(ir::IRList* irs, ir::IRList::iterator function_begin_it,
                  ostream& log_out)
-    : irs(irs), function_begin_it(function_begin_it), log_out(log_out) {}
+    : irs(irs), function_begin_it(function_begin_it), log_out(log_out) {
+  // VFP 实参预着色：$fargN（N<16）固定占用 sN
+  for (int i = 0; i < 16; i++) var_to_freg["$farg" + to_string(i)] = i;
+}
 
 string Context::rename(string name) {
   if (name.size() > 3 && name[1] == '&' && name[2] == '^')
@@ -38,8 +41,28 @@ string Context::rename(string name) {
     return "__Var__" + to_string(name.size() - 1) + name.substr(1);
 }
 
+// 64 位名字的高半部分：低半与高半作为两个独立的 32 位区间参与分配
+string Context::hi_name(const string& name) { return name + "#h"; }
+
+bool Context::is_wide(const string& name) const {
+  return var_width.count(name) != 0;
+}
+
+void Context::mark_wide(const string& name) {
+  if (!name.empty()) var_width.insert({name, 8});
+}
+
 int Context::resolve_stack_offset(string name) {
-  if (name.substr(0, 4) == "$arg") {
+  if (name.size() > 5 && name.compare(0, 5, "$farg") == 0) {
+    auto id = stoi(name.substr(5));
+    if (id < 16) {
+      throw runtime_error(name + " is not in mem.");
+    } else {
+      // VFP 栈参数在核心栈参数区之后（调用方先放核心实参再放浮点实参）
+      return stack_size[0] + stack_size[1] + stack_size[2] + stack_size[3] +
+             stack_size[3] + (id - 16) * 4;
+    }
+  } else if (name.substr(0, 4) == "$arg") {
     auto id = stoi(name.substr(4));
     if (id < 4) {
       throw runtime_error(name + " is not in mem.");
@@ -56,6 +79,30 @@ int Context::resolve_stack_offset(string name) {
 void Context::set_ir_timestamp(ir::IR& cur) {
   ir_to_time.insert({&cur, ++time});
 }
+// IR 结果类型的浮点类别
+Context::FpClass fp_class_of_ty(types::TypeId ty) {
+  using T = syc::ast::types::TypeId;
+  switch (syc::ast::types::canonical(ty)) {
+    case T::FLOAT: return Context::FpClass::F32;
+    case T::DOUBLE: return Context::FpClass::F64;
+    default: return Context::FpClass::NONE;
+  }
+}
+
+// 该 IR 是否通过 BL 调用辅助函数（破坏 r0-r3）
+static bool ir_clobbers_args(const ir::IR& cur) {
+  if (cur.op_code == ir::OpCode::CALL || cur.op_code == ir::OpCode::IDIV ||
+      cur.op_code == ir::OpCode::MOD || cur.op_code == ir::OpCode::UDIV ||
+      cur.op_code == ir::OpCode::UMOD)
+    return true;
+  // 64 位乘法走 __aeabi_lmul
+  if (cur.op_code == ir::OpCode::IMUL &&
+      syc::ast::types::width_bytes(
+          syc::ast::types::canonical(cur.ty.id)) >= 8)
+    return true;
+  return false;
+}
+
 void Context::set_var_latest_use_timestamp(ir::IR& cur) {
   if (cur.op_code != ir::OpCode::MALLOC_IN_STACK) {
     cur.forEachOp([&, this](ir::OpName op) {
@@ -64,26 +111,59 @@ void Context::set_var_latest_use_timestamp(ir::IR& cur) {
           var_latest_use_timestamp.insert({op.name, ir_to_time[&cur]});
           var_latest_use_timestamp_heap.insert({ir_to_time[&cur], op.name});
         }
+        // 64 位值的高半与低半同步其生命周期
+        if (op.name[0] == '%' && is_wide(op.name)) {
+          string hi = Context::hi_name(op.name);
+          if (!var_latest_use_timestamp.count(hi)) {
+            var_latest_use_timestamp.insert({hi, ir_to_time[&cur]});
+            var_latest_use_timestamp_heap.insert({ir_to_time[&cur], hi});
+          }
+        }
       }
     });
   }
   if (cur.op_code == ir::OpCode::SET_ARG && cur.dest.value < 4) {
-    string name = "$arg:" + to_string(cur.dest.value) + ":" +
-                  to_string(ir_to_time[&*cur.phi_block]);
-    var_latest_use_timestamp.insert({name, ir_to_time[&*cur.phi_block]});
-    var_latest_use_timestamp_heap.insert(
-        make_pair(ir_to_time[&*cur.phi_block], name));
+    string name = "$arg:" + to_string(cur.dest.value) + ":0";
+    var_latest_use_timestamp.insert({name, 0});
+    var_latest_use_timestamp_heap.insert(make_pair(0, name));
+    // 宽度 8 的实参还占用下一号寄存器/槽位
+    if (syc::ast::types::width_bytes(
+            syc::ast::types::canonical(cur.ty.id)) >= 8 &&
+        cur.dest.value + 1 < 4) {
+      string name2 = "$arg:" + to_string(cur.dest.value + 1) + ":0";
+      var_latest_use_timestamp.insert({name2, 0});
+      var_latest_use_timestamp_heap.insert(make_pair(0, name2));
+    }
   }
   if (cur.op_code == ir::OpCode::IMUL && cur.op1.is_var()) {
     var_latest_use_timestamp[cur.op1.name]++;
   }
   // 易失寄存器
-  if (cur.op_code == ir::OpCode::CALL || cur.op_code == ir::OpCode::IDIV ||
-      cur.op_code == ir::OpCode::MOD) {
+  if (ir_clobbers_args(cur)) {
     for (int i = 0; i < 4; i++) {
       string name = "$arg:" + to_string(i) + ":" + to_string(ir_to_time[&cur]);
       var_latest_use_timestamp.insert({name, ir_to_time[&cur]});
       var_latest_use_timestamp_heap.insert(make_pair(ir_to_time[&cur], name));
+    }
+  }
+  // CALL 破坏 VFP caller-saved s0-s15
+  if (cur.op_code == ir::OpCode::CALL) {
+    for (int i = 0; i < 16; i++) {
+      string name = "$fsarg:" + to_string(i) + ":" + to_string(ir_to_time[&cur]);
+      var_latest_use_timestamp.insert({name, ir_to_time[&cur]});
+      var_latest_use_timestamp_heap.insert(make_pair(ir_to_time[&cur], name));
+    }
+  }
+  // VFP 实参销定：SET_ARG(vfp) 到调用点占用 s 槽位
+  if (cur.op_code == ir::OpCode::SET_ARG && cur.label == "vfp") {
+    int n_slot = syc::ast::types::width_bytes(
+                     syc::ast::types::canonical(cur.ty.id)) >= 8
+                     ? 2
+                     : 1;
+    for (int k = 0; k < n_slot; k++) {
+      string name = "$fsarg:" + to_string((int)cur.dest.value + k) + ":0";
+      var_latest_use_timestamp.insert({name, 0});
+      var_latest_use_timestamp_heap.insert(make_pair(0, name));
     }
   }
 }
@@ -97,6 +177,14 @@ void Context::set_var_define_timestamp(ir::IR& cur) {
         var_define_timestamp_heap.insert(
             make_pair(ir_to_time[&cur], cur.dest.name));
       }
+      // 64 位 dest 的高半同步登记
+      if (cur.dest.name[0] == '%' && is_wide(cur.dest.name)) {
+        string hi = Context::hi_name(cur.dest.name);
+        if (!var_define_timestamp.count(hi)) {
+          var_define_timestamp.insert({hi, ir_to_time[&cur]});
+          var_define_timestamp_heap.insert(make_pair(ir_to_time[&cur], hi));
+        }
+      }
     }
   } else if (cur.op_code == ir::OpCode::PHI_MOV) {
     if (cur.dest.is_var()) {
@@ -105,18 +193,53 @@ void Context::set_var_define_timestamp(ir::IR& cur) {
         var_define_timestamp.insert({cur.dest.name, time});
         var_define_timestamp_heap.insert(make_pair(time, cur.dest.name));
       }
+      // 64 位 PHI_MOV dest 的高半同步登记
+      if (cur.dest.name[0] == '%' && is_wide(cur.dest.name)) {
+        string hi = Context::hi_name(cur.dest.name);
+        if (!var_define_timestamp.count(hi)) {
+          int time = min(ir_to_time[&*cur.phi_block], ir_to_time[&cur]);
+          var_define_timestamp.insert({hi, time});
+          var_define_timestamp_heap.insert(make_pair(time, hi));
+        }
+      }
     }
   }
   if (cur.op_code == ir::OpCode::SET_ARG && cur.dest.value < 4) {
     string name = "$arg:" + to_string(cur.dest.value) + ":" +
-                  to_string(ir_to_time[&*cur.phi_block]);
+                  to_string(ir_to_time[&cur]);
     var_define_timestamp.insert({name, ir_to_time[&cur]});
     var_define_timestamp_heap.insert(make_pair(ir_to_time[&cur], name));
+    if (syc::ast::types::width_bytes(
+            syc::ast::types::canonical(cur.ty.id)) >= 8 &&
+        cur.dest.value + 1 < 4) {
+      string name2 = "$arg:" + to_string(cur.dest.value + 1) + ":" +
+                     to_string(ir_to_time[&cur]);
+      var_define_timestamp.insert({name2, ir_to_time[&cur]});
+      var_define_timestamp_heap.insert(make_pair(ir_to_time[&cur], name2));
+    }
   }
-  if (cur.op_code == ir::OpCode::CALL || cur.op_code == ir::OpCode::IDIV ||
-      cur.op_code == ir::OpCode::MOD) {
+  if (ir_clobbers_args(cur)) {
     for (int i = 0; i < 4; i++) {
       string name = "$arg:" + to_string(i) + ":" + to_string(ir_to_time[&cur]);
+      var_define_timestamp.insert({name, ir_to_time[&cur]});
+      var_define_timestamp_heap.insert(make_pair(ir_to_time[&cur], name));
+    }
+  }
+  if (cur.op_code == ir::OpCode::CALL) {
+    for (int i = 0; i < 16; i++) {
+      string name = "$fsarg:" + to_string(i) + ":" + to_string(ir_to_time[&cur]);
+      var_define_timestamp.insert({name, ir_to_time[&cur]});
+      var_define_timestamp_heap.insert(make_pair(ir_to_time[&cur], name));
+    }
+  }
+  if (cur.op_code == ir::OpCode::SET_ARG && cur.label == "vfp") {
+    int n_slot = syc::ast::types::width_bytes(
+                     syc::ast::types::canonical(cur.ty.id)) >= 8
+                     ? 2
+                     : 1;
+    for (int k = 0; k < n_slot; k++) {
+      string name = "$fsarg:" + to_string((int)cur.dest.value + k) + ":" +
+                    to_string(ir_to_time[&cur]);
       var_define_timestamp.insert({name, ir_to_time[&cur]});
       var_define_timestamp_heap.insert(make_pair(ir_to_time[&cur], name));
     }
@@ -263,7 +386,236 @@ int Context::get_specified_reg_for(string name, int reg_id) {
   return reg_id;
 }
 
-void Context::load_imm(string reg, int value, ostream& out) {
+// ── VFP 浮点寄存器分配 ────────────────────────────────────────────
+Context::FpClass Context::fp_class(const string& name) const {
+  auto it = var_fp.find(name);
+  return it == var_fp.end() ? FpClass::NONE : it->second;
+}
+
+bool Context::is_fpreg(const string& name) const {
+  return fp_class(name) != FpClass::NONE;
+}
+
+void Context::mark_fp(const string& name, types::TypeId ty) {
+  FpClass c = fp_class_of_ty(ty);
+  if (c != FpClass::NONE && !name.empty()) var_fp.insert({name, c});
+}
+
+bool Context::var_in_freg(string name) { return var_to_freg.count(name) != 0; }
+
+void Context::expire_old_freg_intervals(int cur_time) {
+  for (int i = 0; i < freg_count; i++) {
+    if (used_freg[i]) {
+      auto it = freg_to_var.find(i);
+      if (it == freg_to_var.end() ||
+          var_latest_use_timestamp.find(it->second) ==
+              var_latest_use_timestamp.end() ||
+          cur_time >= var_latest_use_timestamp[it->second]) {
+        used_freg[i] = 0;
+        freg_to_var.erase(i);
+      }
+    }
+  }
+}
+
+void Context::overflow_fvar(string name) {
+  FpClass cls = fp_class(name);
+  if (var_to_freg.count(name)) {
+    int lo = var_to_freg[name];
+    int n = cls == FpClass::F64 ? 2 : 1;
+    for (int k = 0; k < n; k++) {
+      used_freg[lo + k] = 0;
+      freg_to_var.erase(lo + k);
+    }
+    var_to_freg.erase(name);
+  }
+  if (cls == FpClass::F64) {
+    // double 溢出槽 8 字节且 8 对齐（为真机 VLDR.64 做准备）
+    stack_size[2] = (stack_size[2] + 7) & ~7;
+    stack_offset_map[name] = stack_size[2];
+    stack_size[2] += 8;
+  } else {
+    stack_offset_map[name] = stack_size[2];
+    stack_size[2] += 4;
+  }
+}
+
+// 空闲单个/成对（偶对齐）s 寄存器；begin 之后的 caller-saved 优先，
+// 其次 callee-saved（需保护现场）
+int Context::find_free_freg(bool dbl, int begin) {
+  auto clear = [&](int i) { return (savable_freg | used_freg)[i] == 0; };
+  if (!dbl) {
+    for (int i = begin; i < freg_allocatable; i++)
+      if (clear(i) && !savable_freg[i]) return i;
+    for (int i = begin; i < freg_allocatable; i++)
+      if (clear(i) && savable_freg[i]) return i;
+    return -1;
+  }
+  for (int i = begin & ~1; i + 1 < freg_allocatable; i += 2)
+    if (clear(i) && clear(i + 1)) return i;
+  return -1;
+}
+
+int Context::get_new_freg(bool dbl, int begin) {
+  int r = find_free_freg(dbl, begin);
+  int n = dbl ? 2 : 1;
+  if (r != -1) {
+    for (int k = 0; k < n; k++) {
+      if (savable_freg[r + k]) {
+        savable_freg[r + k] = 0;
+        stack_size[1] += 4;
+      }
+      used_freg[r + k] = 1;
+    }
+    return r;
+  }
+  // 无空闲：溢出占用者（选最晚使用者；成对时一并溢出）
+  if (!dbl) {
+    int best = -1, best_time = -1;
+    for (int i = begin; i < freg_allocatable; i++) {
+      if (!used_freg[i]) continue;
+      auto it = freg_to_var.find(i);
+      int t = it != freg_to_var.end() &&
+                      var_latest_use_timestamp.count(it->second)
+                  ? var_latest_use_timestamp[it->second]
+                  : 0;
+      if (t > best_time) { best_time = t; best = i; }
+    }
+    if (best != -1) overflow_fvar(freg_to_var[best]);
+    used_freg[best] = 1;
+    return best;
+  }
+  int best = -1, best_time = -1;
+  for (int i = begin & ~1; i + 1 < freg_allocatable; i += 2) {
+    int t = 0;
+    for (int k = 0; k < 2; k++) {
+      if (!used_freg[i + k]) continue;
+      auto it = freg_to_var.find(i + k);
+      if (it != freg_to_var.end() && var_latest_use_timestamp.count(it->second))
+        t = max(t, var_latest_use_timestamp[it->second]);
+    }
+    if (t > best_time) { best_time = t; best = i; }
+  }
+  if (best != -1) {
+    if (used_freg[best]) overflow_fvar(freg_to_var[best]);
+    if (used_freg[best + 1]) overflow_fvar(freg_to_var[best + 1]);
+  }
+  for (int k = 0; k < 2; k++) {
+    if (savable_freg[best + k]) {
+      savable_freg[best + k] = 0;
+      stack_size[1] += 4;
+    }
+    used_freg[best + k] = 1;
+  }
+  return best;
+}
+
+int Context::get_new_freg_for(string name, int begin) {
+  if (var_to_freg.find(name) != var_to_freg.end()) return var_to_freg[name];
+  bool dbl = fp_class(name) == FpClass::F64;
+  int r = get_new_freg(dbl, begin);
+  var_to_freg[name] = r;
+  freg_to_var[r] = name;
+  if (dbl) freg_to_var[r + 1] = name;
+  return r;
+}
+
+int Context::get_specified_freg_for(string name, int reg_id) {
+  if (var_to_freg.find(name) != var_to_freg.end() &&
+      var_to_freg[name] == reg_id)
+    return reg_id;
+  if (used_freg[reg_id]) overflow_fvar(freg_to_var[reg_id]);
+  bool dbl = fp_class(name) == FpClass::F64;
+  int n = dbl ? 2 : 1;
+  for (int k = 0; k < n; k++) {
+    if (used_freg[reg_id + k] && freg_to_var[reg_id + k] != name)
+      overflow_fvar(freg_to_var[reg_id + k]);
+    if (savable_freg[reg_id + k]) {
+      savable_freg[reg_id + k] = 0;
+      stack_size[1] += 4;
+    }
+    used_freg[reg_id + k] = 1;
+    freg_to_var[reg_id + k] = name;
+  }
+  var_to_freg[name] = reg_id;
+  return reg_id;
+}
+
+// 浮点装载：op1 → 目标 s/d 寄存器
+void Context::load_freg(int sidx, bool dbl, ir::OpName op, ostream& out) {
+  string dn = dbl ? "d" + to_string(sidx / 2) : "s" + to_string(sidx);
+  if (op.is_imm()) {
+    // 浮点立即数：位模式经核心寄存器装入
+    if (dbl) {
+      load_imm("r12", (int32_t)(uint32_t)(uint64_t)op.value, out);
+      load_imm("r14", (int32_t)((uint64_t)op.value >> 32), out);
+      out << "    VMOV " << dn << ", r12, r14" << endl;
+    } else {
+      load_imm("r12", (int32_t)(uint32_t)op.value, out);
+      out << "    VMOV " << dn << ", r12" << endl;
+    }
+    return;
+  }
+  const string& nm = op.name;
+  if (var_in_freg(nm)) {
+    int src = var_to_freg[nm];
+    string sd = fp_class(nm) == FpClass::F64 ? "d" + to_string(src / 2)
+                                             : "s" + to_string(src);
+    if (sd != dn) out << "    VMOV " << dn << ", " << sd << endl;
+    return;
+  }
+  if (nm.size() > 5 && nm.compare(0, 5, "$farg") == 0) {
+    int id = stoi(nm.substr(5));
+    if (id < 16) {
+      string sd = dbl ? "d" + to_string(id / 2) : "s" + to_string(id);
+      if (sd != dn) out << "    VMOV " << dn << ", " << sd << endl;
+      return;
+    }
+    // VFP 栈参数
+    load_from_stack_offset(dn, resolve_stack_offset(nm), out, "VLDR");
+    return;
+  }
+  if (nm[0] == '@' && nm[1] != '&') {
+    // 全局标量浮点
+    out << "    MOV32 r12, " << rename(nm) << endl;
+    out << "    VLDR " << dn << ", [r12,#0]" << endl;
+    return;
+  }
+  // 局部溢出槽
+  int offset = resolve_stack_offset(nm);
+  load_from_stack_offset(dn, offset, out, "VLDR");
+}
+
+// 浮点存放：sidx 寄存器 → dest 落点
+void Context::store_freg_dest(int sidx, bool dbl, const string& name,
+                              ostream& out) {
+  string dn = dbl ? "d" + to_string(sidx / 2) : "s" + to_string(sidx);
+  if (name[0] == '@') {
+    out << "    MOV32 r12, " << rename(name) << endl;
+    out << "    VSTR " << dn << ", [r12,#0]" << endl;
+    return;
+  }
+  if (var_in_freg(name)) {
+    int dreg = var_to_freg[name];
+    string dd = fp_class(name) == FpClass::F64 ? "d" + to_string(dreg / 2)
+                                               : "s" + to_string(dreg);
+    if (dd != dn) out << "    VMOV " << dd << ", " << dn << endl;
+    return;
+  }
+  if (name.size() > 5 && name.compare(0, 5, "$farg") == 0) {
+    int id = stoi(name.substr(5));
+    if (id < 16) {
+      string sd = dbl ? "d" + to_string(id / 2) : "s" + to_string(id);
+      if (sd != dn) out << "    VMOV " << sd << ", " << dn << endl;
+      return;
+    }
+    store_to_stack_offset(dn, resolve_stack_offset(name), out, "VSTR");
+    return;
+  }
+  store_to_stack_offset(dn, resolve_stack_offset(name), out, "VSTR");
+}
+
+void Context::load_imm(string reg, int64_t value, ostream& out) {
   if (value >= 0 && value < 65536)
     out << "    MOV " << reg << ", #" << value << endl;
   else
@@ -317,6 +669,37 @@ void Context::load(string reg, ir::OpName op, ostream& out) {
         }
       }
     }
+  }
+}
+
+void Context::load_half(string reg, ir::OpName op, int half, ostream& out) {
+  if (op.is_imm()) {
+    int32_t h = half ? (int32_t)((uint64_t)op.value >> 32)
+                     : (int32_t)(uint32_t)(uint64_t)op.value;
+    load_imm(reg, h, out);
+    return;
+  }
+  if (half == 0) {
+    // 低半：常规路径（$argN(N<4) 经 var_to_reg 直接映射到寄存器）
+    load(reg, op, out);
+    return;
+  }
+  const string& nm = op.name;
+  if (nm[0] == '@') {
+    // 全局标量：高半位于 +4 地址
+    out << "    MOV32 " << reg << ", " << rename(nm) << endl;
+    out << "    LDR " << reg << ", [" << reg << ",#4]" << endl;
+  } else if (nm.size() > 4 && nm.compare(0, 4, "$arg") == 0) {
+    int id = stoi(nm.substr(4));
+    if (id + 1 < 4) {
+      string src = "r" + to_string(id + 1);
+      if (reg != src) out << "    MOV " << reg << ", " << src << endl;
+    } else {
+      load_from_stack_offset(reg, resolve_stack_offset(nm) + 4, out);
+    }
+  } else {
+    // 局部变量：高半是独立参与分配的 #h 名字
+    load(reg, ir::OpName(Context::hi_name(nm)), out);
   }
 }
 

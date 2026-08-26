@@ -25,6 +25,7 @@ namespace syc::ir {
 OpName::OpName() : type(OpName::Type::Null) {}
 OpName::OpName(std::string name) : type(OpName::Type::Var), name(name) {}
 OpName::OpName(int value) : type(OpName::Type::Imm), value(value) {}
+OpName::OpName(std::int64_t value) : type(OpName::Type::Imm), value(value) {}
 bool OpName::is_var() const { return this->type == OpName::Type::Var; }
 bool OpName::is_local_var() const {
   return this->is_var() &&
@@ -109,135 +110,74 @@ void IR::forEachOp(std::function<void(const syc::ir::OpName&)> callback,
       include_dest);
 }
 
+#define PRINT_OP(op) case OpCode::op: out << #op << std::string(16 - std::string(#op).size(), ' '); break
 void IR::print(std::ostream& out, bool verbose) const {
   switch (this->op_code) {
-    case OpCode::MALLOC_IN_STACK:
-      out << "MALLOC_IN_STACK"
-          << std::string(16 - std::string("MALLOC_IN_STACK").size(), ' ');
-      break;
-    case OpCode::MOV:
-      out << "MOV" << std::string(16 - std::string("MOV").size(), ' ');
-      break;
-    case OpCode::ADD:
-      out << "ADD" << std::string(16 - std::string("ADD").size(), ' ');
-      break;
-    case OpCode::SUB:
-      out << "SUB" << std::string(16 - std::string("SUB").size(), ' ');
-      break;
-    case OpCode::IMUL:
-      out << "IMUL" << std::string(16 - std::string("IMUL").size(), ' ');
-      break;
-    case OpCode::IDIV:
-      out << "IDIV" << std::string(16 - std::string("IDIV").size(), ' ');
-      break;
-    case OpCode::MOD:
-      out << "MOD" << std::string(16 - std::string("MOD").size(), ' ');
-      break;
-    case OpCode::SET_ARG:
-      out << "SET_ARG" << std::string(16 - std::string("SET_ARG").size(), ' ');
-      break;
-    case OpCode::CALL:
-      out << "CALL" << std::string(16 - std::string("CALL").size(), ' ');
-      break;
-    case OpCode::CMP:
-      out << "CMP" << std::string(16 - std::string("CMP").size(), ' ');
-      break;
-    case OpCode::JMP:
-      out << "JMP" << std::string(16 - std::string("JMP").size(), ' ');
-      break;
-    case OpCode::JEQ:
-      out << "JEQ" << std::string(16 - std::string("JEQ").size(), ' ');
-      break;
-    case OpCode::JNE:
-      out << "JNE" << std::string(16 - std::string("JNE").size(), ' ');
-      break;
-    case OpCode::JLE:
-      out << "JLE" << std::string(16 - std::string("JLE").size(), ' ');
-      break;
-    case OpCode::JLT:
-      out << "JLT" << std::string(16 - std::string("JLT").size(), ' ');
-      break;
-    case OpCode::JGE:
-      out << "JGE" << std::string(16 - std::string("JGE").size(), ' ');
-      break;
-    case OpCode::JGT:
-      out << "JGT" << std::string(16 - std::string("JGT").size(), ' ');
-      break;
-    case OpCode::MOVEQ:
-      out << "MOVEQ" << std::string(16 - std::string("MOVEQ").size(), ' ');
-      break;
-    case OpCode::MOVNE:
-      out << "MOVNE" << std::string(16 - std::string("MOVNE").size(), ' ');
-      break;
-    case OpCode::MOVLE:
-      out << "MOVLE" << std::string(16 - std::string("MOVLE").size(), ' ');
-      break;
-    case OpCode::MOVLT:
-      out << "MOVLT" << std::string(16 - std::string("MOVLT").size(), ' ');
-      break;
-    case OpCode::MOVGE:
-      out << "MOVGE" << std::string(16 - std::string("MOVGE").size(), ' ');
-      break;
-    case OpCode::MOVGT:
-      out << "MOVGT" << std::string(16 - std::string("MOVGT").size(), ' ');
-      break;
-    case OpCode::AND:
-      out << "AND" << std::string(16 - std::string("AND").size(), ' ');
-      break;
-    case OpCode::OR:
-      out << "OR" << std::string(16 - std::string("OR").size(), ' ');
-      break;
-    case OpCode::SAL:
-      out << "SAL" << std::string(16 - std::string("SAL").size(), ' ');
-      break;
-    case OpCode::SAR:
-      out << "SAR" << std::string(16 - std::string("SAR").size(), ' ');
-      break;
-    case OpCode::STORE:
-      out << "STORE" << std::string(16 - std::string("STORE").size(), ' ');
-      break;
-    case OpCode::LOAD:
-      out << "LOAD" << std::string(16 - std::string("LOAD").size(), ' ');
-      break;
-    case OpCode::RET:
-      out << "RET" << std::string(16 - std::string("RET").size(), ' ');
-      break;
-    case OpCode::LABEL:
-      out << "LABEL" << std::string(16 - std::string("LABEL").size(), ' ');
-      break;
-    case OpCode::DATA_BEGIN:
-      out << "DATA_BEGIN"
-          << std::string(16 - std::string("DATA_BEGIN").size(), ' ');
-      break;
-    case OpCode::DATA_SPACE:
-      out << "DATA_SPACE"
-          << std::string(16 - std::string("DATA_SPACE").size(), ' ');
-      break;
-    case OpCode::DATA_WORD:
-      out << "DATA_WORD"
-          << std::string(16 - std::string("DATA_WORD").size(), ' ');
-      break;
-    case OpCode::DATA_END:
-      out << "DATA_END"
-          << std::string(16 - std::string("DATA_END").size(), ' ');
-      break;
-    case OpCode::FUNCTION_BEGIN:
-      out << "FUNCTION_BEGIN"
-          << std::string(16 - std::string("FUNCTION_BEGIN").size(), ' ');
-      break;
-    case OpCode::FUNCTION_END:
-      out << "FUNCTION_END"
-          << std::string(16 - std::string("FUNCTION_END").size(), ' ');
-      break;
-    case OpCode::PHI_MOV:
-      out << "PHI_MOV" << std::string(16 - std::string("PHI_MOV").size(), ' ');
-      break;
-    case OpCode::NOOP:
-      out << "NOOP" << std::string(16 - std::string("NOOP").size(), ' ');
-      break;
-    case OpCode::INFO:
-      out << "INFO" << std::string(16 - std::string("INFO").size(), ' ');
-      break;
+    PRINT_OP(MALLOC_IN_STACK);
+    PRINT_OP(MOV);
+    PRINT_OP(ADD);
+    PRINT_OP(SUB);
+    PRINT_OP(IMUL);
+    PRINT_OP(IDIV);
+    PRINT_OP(MOD);
+    PRINT_OP(UDIV);
+    PRINT_OP(UMOD);
+    PRINT_OP(TRUNC_U8);
+    PRINT_OP(TRUNC_S8);
+    PRINT_OP(TRUNC_U16);
+    PRINT_OP(TRUNC_S16);
+    PRINT_OP(SEXT);
+    PRINT_OP(ZEXT);
+    PRINT_OP(FDIV);
+    PRINT_OP(FNEG);
+    PRINT_OP(SITOF);
+    PRINT_OP(UITOF);
+    PRINT_OP(F2I);
+    PRINT_OP(F2U);
+    PRINT_OP(F2F);
+    PRINT_OP(SET_ARG);
+    PRINT_OP(CALL);
+    PRINT_OP(CMP);
+    PRINT_OP(JMP);
+    PRINT_OP(JEQ);
+    PRINT_OP(JNE);
+    PRINT_OP(JLE);
+    PRINT_OP(JLT);
+    PRINT_OP(JGE);
+    PRINT_OP(JGT);
+    PRINT_OP(JMPHS);
+    PRINT_OP(JMPLO);
+    PRINT_OP(JMPLS);
+    PRINT_OP(JMPI);
+    PRINT_OP(MOVEQ);
+    PRINT_OP(MOVNE);
+    PRINT_OP(MOVLE);
+    PRINT_OP(MOVLT);
+    PRINT_OP(MOVGE);
+    PRINT_OP(MOVGT);
+    PRINT_OP(MOVHS);
+    PRINT_OP(MOVLO);
+    PRINT_OP(MOVLS);
+    PRINT_OP(MOVHI);
+    PRINT_OP(AND);
+    PRINT_OP(OR);
+    PRINT_OP(SAL);
+    PRINT_OP(SAR);
+    PRINT_OP(LSR);
+    PRINT_OP(STORE);
+    PRINT_OP(LOAD);
+    PRINT_OP(RET);
+    PRINT_OP(LABEL);
+    PRINT_OP(DATA_BEGIN);
+    PRINT_OP(DATA_SPACE);
+    PRINT_OP(DATA_WORD);
+    PRINT_OP(DATA_STRING);
+    PRINT_OP(DATA_END);
+    PRINT_OP(FUNCTION_BEGIN);
+    PRINT_OP(FUNCTION_END);
+    PRINT_OP(PHI_MOV);
+    PRINT_OP(NOOP);
+    PRINT_OP(INFO);
   }
   this->forEachOp([&out](const OpName& op) {
     if (op.is_imm()) {
@@ -249,15 +189,16 @@ void IR::print(std::ostream& out, bool verbose) const {
     }
   });
   out << this->label;
+  if (ast::types::is_floating(ast::types::canonical(this->ty.id)) ||
+      width_bytes(ast::types::canonical(this->ty.id)) == 8) {
+    out << "  ; " << ast::types::name_of(this->ty.id);
+  }
   out << std::endl;
 }
+// 位置不再在 IR 构造期填入；由 ast::node 的 generate_ir/eval_runtime
+// 包装函数按子节点覆盖范围回填（见 node.cpp 的 backfill_position）
 void IR::setup_file_postion() {
-  if (syc::ast::node::current()) {
-    this->line = syc::ast::node::current()->line;
-    this->column = syc::ast::node::current()->column;
-  } else {
-    this->line = 0;
-    this->column = 0;
-  }
+  this->line = 0;
+  this->column = 0;
 }
 }  // namespace syc::ir

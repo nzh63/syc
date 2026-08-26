@@ -18,8 +18,9 @@
 #include "ir/generate/generate.h"
 
 namespace syc::ir {
-IRList generate(syc::ast::node::Root* root) {
+IRList generate(syc::ast::node::Root* root, const syc::Config& cfg) {
   ir::Context ctx;
+  ctx.cfg = &cfg;
   IRList ir;
   root->generate_ir(ctx, ir);
   return ir;

@@ -16,11 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include <cstdint>
 #include <functional>
 #include <iostream>
 #include <list>
 #include <string>
 
+#include "ast/type.h"
 #include "ir/generate/context.h"
 
 namespace syc::ir {
@@ -35,10 +37,11 @@ class OpName {
  public:
   Type type;
   std::string name;
-  int value;
+  std::int64_t value;
   OpName();
   OpName(std::string name);
   OpName(int value);
+  OpName(std::int64_t value);
   bool is_var() const;
   bool is_local_var() const;
   bool is_global_var() const;
@@ -52,8 +55,23 @@ enum class OpCode {
   ADD,              // dest = op1 + op2
   SUB,              // dest = op1 - op2
   IMUL,             // dest = op1 * op2
-  IDIV,             // dest = op1 / op2
-  MOD,              // dest = op1 % op2
+  IDIV,             // dest = op1 / op2 （有符号）
+  MOD,              // dest = op1 % op2 （有符号）
+  UDIV,             // dest = op1 /u op2 （无符号）
+  UMOD,             // dest = op1 %u op2 （无符号）
+  TRUNC_U8,         // dest = op1 零扩展低 8 位（规范化到 uint8）
+  TRUNC_S8,         // dest = op1 符号扩展低 8 位（规范化到 int8）
+  TRUNC_U16,        // dest = op1 零扩展低 16 位
+  TRUNC_S16,        // dest = op1 符号扩展低 16 位
+  SEXT,             // dest(8字节) = (int64_t)(int32_t)op1 符号扩展 32->64
+  ZEXT,             // dest(8字节) = (uint64_t)(uint32_t)op1 零扩展 32->64
+  FDIV,             // dest(浮点 ty) = op1 / op2 浮点除法
+  FNEG,             // dest(浮点 ty) = -op1
+  SITOF,            // dest(浮点 ty) = (浮点)(int32_t)op1（ARM64 SCVTF）
+  UITOF,            // dest(浮点 ty) = (浮点)(uint32_t)op1（ARM64 UCVTF）
+  F2I,              // dest = (int32_t)op1 向零截断（ARM64 FCVTZS）
+  F2U,              // dest = (uint32_t)op1 向零截断（ARM64 FCVTZU）
+  F2F,              // dest(浮点 ty) = 浮点宽度转换 op1（F32<->F64，FCVT）
   SET_ARG,          // if dest < 4: R(dest)) = op1 else: push_stack(op1)
   CALL,             // call label
   CMP,              // cmp op1, op2
@@ -64,16 +82,25 @@ enum class OpCode {
   JLT,              // if LT: jmp label
   JGE,              // if GE: jmp label
   JGT,              // if GT: jmp label
+  JMPHS,            // if HS(无符号 >=): jmp label
+  JMPLO,            // if LO(无符号 <): jmp label
+  JMPLS,            // if LS(无符号 <=): jmp label
+  JMPI,             // if HI(无符号 >): jmp label
   MOVEQ,            // if EQ: dest = op1 else: dest = op2
   MOVNE,            // if NE: dest = op1 else: dest = op2
   MOVLE,            // if LE: dest = op1 else: dest = op2
   MOVLT,            // if LT: dest = op1 else: dest = op2
   MOVGE,            // if GE: dest = op1 else: dest = op2
   MOVGT,            // if GT: dest = op1 else: dest = op2
+  MOVHS,            // if 无符号>=: dest = op1 else: dest = op2
+  MOVLO,            // if 无符号<: dest = op1 else: dest = op2
+  MOVLS,            // if 无符号<=: dest = op1 else: dest = op2
+  MOVHI,            // if 无符号>: dest = op1 else: dest = op2
   AND,              // dest = op1 && op2
   OR,               // dest = op1 || op2
   SAL,              // dest = op1 << op2 算数左移
   SAR,              // dest = op1 >> op2 算数右移
+  LSR,              // dest = op1 >>u op2 逻辑右移（无符号）
   STORE,            // op1[op2] = op3
   LOAD,             // dest = op1[op2]
   RET,              // return / return op1
@@ -81,6 +108,7 @@ enum class OpCode {
   DATA_BEGIN,       //.data
   DATA_WORD,        //.word
   DATA_SPACE,       //.space
+  DATA_STRING,      //.asciz
   DATA_END,         // nothing
   FUNCTION_BEGIN,   // FUNCTION_BEGIN
   FUNCTION_END,     // FUNCTION_END
@@ -92,6 +120,10 @@ class IR {
  public:
   int line, column;
   OpCode op_code;
+  // dest 的类型：宽度 8 的指令按 64 位解释操作数与结果，
+  // LLONG/ULLONG 的符号性供 CMP 等运算区分；
+  // FLOAT/DOUBLE 的指令按浮点解释（后端走 VFP 寄存器路径）。
+  types::TypeInfo ty{types::TypeId::INT};
   std::string label;
   OpName op1, op2, op3, dest;
   std::list<IR>::iterator phi_block;

@@ -19,65 +19,50 @@
 
 extern int yydebug;
 
-namespace syc::config {
+namespace syc {
 
-int optimize_level = 0;
-FILE* input = stdin;
-std::ostream* output = &std::cout;
-bool print_ast = false;
-bool print_ir = false;
-bool print_log = false;
-bool enable_dwarf2 = false;
-std::string input_filename = "<stdin>";
-
-void parse_arg(int argc, char** argv) {
+Config Config::parse_arg(int argc, char** argv) {
+  Config cfg;
   yydebug = 0;
-  optimize_level = 0;
-  input = stdin;
-  output = &std::cout;
-  print_ast = false;
-  print_ir = false;
-  print_log = false;
-  enable_dwarf2 = false;
-  input_filename = "stdin";
   int s = 0;
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] == '-') {
       if (std::string("-o") == argv[i])
         s = 1;
       else if (std::string("-O0") == argv[i])
-        optimize_level = 0;
+        cfg.optimize_level = 0;
       else if (std::string("-O1") == argv[i])
-        optimize_level = 1;
+        cfg.optimize_level = 1;
       else if (std::string("-O2") == argv[i])
-        optimize_level = 2;
+        cfg.optimize_level = 2;
       else if (std::string("-yydebug") == argv[i])
         yydebug = 1;
       else if (std::string("-print_ast") == argv[i])
-        print_ast = true;
+        cfg.print_ast = true;
       else if (std::string("-print_ir") == argv[i])
-        print_ir = true;
+        cfg.print_ir = true;
       else if (std::string("-print_log") == argv[i])
-        print_log = true;
+        cfg.print_log = true;
       else if (std::string("-g") == argv[i])
-        enable_dwarf2 = true;
+        cfg.enable_dwarf2 = true;
     } else {
       if (s == 1) {
         if (std::string("-") == argv[i])
-          output = &std::cout;
+          cfg.output = &std::cout;
         else
-          output = new std::ofstream(argv[i], std::ofstream::out);
+          cfg.output = new std::ofstream(argv[i], std::ofstream::out);
       } else if (s == 0) {
         if (std::string("-") == argv[i]) {
-          input = stdin;
-          input_filename = "<stdin>";
+          cfg.input = stdin;
+          cfg.input_filename = "<stdin>";
         } else {
-          input = fopen(argv[i], "r");
-          input_filename = argv[i];
+          cfg.input = fopen(argv[i], "r");
+          cfg.input_filename = argv[i];
         }
       }
       s = 0;
     }
   }
+  return cfg;
 }
-}  // namespace syc::config
+}  // namespace syc

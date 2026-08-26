@@ -1,0 +1,22 @@
+// unsigned 类型：无符号除法、取模、比较与回绕
+int main() {
+    unsigned u = 4000000000u;
+    unsigned v = u / 7;
+    putf("%u\n", v);
+    unsigned r = u % 7;
+    putf("%u\n", r);
+    unsigned w = u + 1000000000u;   // 回绕：5000000000 - 2^32
+    putf("%u\n", w);
+    if (w < 3u)
+        putf("lt\n");
+    else
+        putf("ge\n");
+    unsigned neg = 0u - 8u;         // 2^32 - 8
+    unsigned h = neg / 2u;          // 无符号除法
+    putf("%u\n", h);
+    if (neg > 0u)
+        putf("pos\n");
+    else
+        putf("nonpos\n");
+    return 5;
+}

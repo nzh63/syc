@@ -16,42 +16,48 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 %{
+#include <cstring>
 #include <string>
 #include "ast/node.h"
 #include "parser.hpp"
 
-void yyerror(const char *s);
-int yycolumn = 1;
+void yylex_error(void *scanner, const char *s);
 
-#define SAVE_TOKEN     yylval.string = new std::string(yytext, yyleng)
-#define TOKEN(t)       (yylval.token = t)
-#define YY_USER_ACTION yylloc.first_line = yylineno;            \
-                       yylloc.first_column = yycolumn;          \
-                       for (auto i : std::string(yytext_ptr)) { \
-                           if (i == '\n') {                     \
-                               yylineno++;                      \
-                               yycolumn = 1;                    \
-                           } else {                             \
-                               yycolumn++;                      \
-                           }                                    \
-                       }                                        \
-                       yylloc.last_line = yylineno;             \
-                       yylloc.last_column = yycolumn - 1;
+// 可重入 flex：yylval/yylloc 是 yylex 的参数；列号存于 per-scanner 的
+// yyextra（初值 1，由 yylex_init 的调用方设置）
+#define SAVE_TOKEN     yylval_param->string = new std::string(yytext, yyleng)
+#define TOKEN(t)       (yylval_param->token = t)
+#define YY_USER_ACTION yylloc_param->first_line = yylineno;            \
+                       yylloc_param->first_column = yyextra;           \
+                       yylloc_param->last_line = yylineno;             \
+                       yyextra += yyleng;                              \
+                       yylloc_param->last_column = yyextra - 1;        \
+
+// 把 "(__LINE__" 按逆序注回输入流（unput 是栈式回退），使后续输入变成
+// "(__LINE__)"——对应 SysY 运行时宏 _sysy_starttime(__LINE__) 的展开。
+// 必须是宏：unput 展开依赖 yylex 作用域内的 scanner 状态
+#include <cstring>
+#define INJECT_CALL_LINE()  do {                                                 \
+                                const char *s = "(__LINE__";                     \
+                                for (int i = (int)strlen(s) - 1; i >= 0; i--)    \
+                                    unput(s[i]);                                 \
+                            } while (0)
 %}
 
-%option noyywrap
+%option noyywrap reentrant bison-bridge bison-locations yylineno
+%option extra-type="int"
 
 %%
 
-\/\/.*\n?                           ;
+\/\/[^\n]*                           ;
 "/*"                        		{
                                         int c;
-                                        while((c = yyinput()) != 0) {
+                                        while((c = yyinput(yyscanner)) != 0) {
                                             if(c == '\n') {
                                                 yylineno++;
-                                                yycolumn = 1;
+                                                yyextra = 1;
                                             } else if(c == '*') {
-                                                if((c = yyinput()) == '/')
+                                                if((c = yyinput(yyscanner)) == '/')
                                                     break;
                                                 else
                                                     unput(c);
@@ -59,7 +65,8 @@ int yycolumn = 1;
                                         }
                                     }
 [ ]                                 ;
-\n                                  ;
+
+\n                                  { yyextra = 1; }
 [\t\r]                              ;
 "if"                                return TOKEN(IF);
 "else"                              return TOKEN(ELSE);
@@ -71,14 +78,75 @@ int yycolumn = 1;
 "const"                             return TOKEN(CONST);
 "int"                               return TOKEN(INT);
 "void"                              return TOKEN(VOID);
-"putf"[ \t\n]*"("                   yylval.string = new std::string("printf"); *yy_cp = yy_hold_char; yy_hold_char='(';yy_cp--; yyleng--; yy_c_buf_p--; return IDENTIFIER;
-"starttime"[ \t\n]*"("              yylval.string = new std::string("_sysy_starttime"); *yy_cp = yy_hold_char; yy_hold_char='(';yy_cp--; yyleng--; yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='E';yy_c_buf_p--; *yy_c_buf_p='N';yy_c_buf_p--; *yy_c_buf_p='I';yy_c_buf_p--; *yy_c_buf_p='L';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; return IDENTIFIER;
-"stoptime"[ \t\n]*"("               yylval.string = new std::string("_sysy_stoptime"); *yy_cp = yy_hold_char; yy_hold_char='(';yy_cp--; yyleng--; yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='E';yy_c_buf_p--; *yy_c_buf_p='N';yy_c_buf_p--; *yy_c_buf_p='I';yy_c_buf_p--; *yy_c_buf_p='L';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; *yy_c_buf_p='_';yy_c_buf_p--; return IDENTIFIER;
-"__LINE__"                          yylval.string = new std::string(std::to_string(yyget_lineno())); return INTEGER_VALUE;
-"_SYSY_N"                           yylval.string = new std::string(std::to_string(1024)); return INTEGER_VALUE;
+"signed"                            return TOKEN(SIGNED);
+"unsigned"                          return TOKEN(UNSIGNED);
+"char"                              return TOKEN(CHAR);
+"short"                             return TOKEN(SHORT);
+"long"                              return TOKEN(LONG);
+"float"                             return TOKEN(FLOAT);
+"double"                            return TOKEN(DOUBLE);
+"bool"                              return TOKEN(BOOL);
+"true"                              return TOKEN(TRUE);
+"false"                             return TOKEN(FALSE);
+"putf"[ \t\n]*"("                   yylval_param->string = new std::string("printf"); yyless(4); return IDENTIFIER;
+"starttime"[ \t\n]*"("              yylval_param->string = new std::string("_sysy_starttime"); INJECT_CALL_LINE(); return IDENTIFIER;
+"stoptime"[ \t\n]*"("               yylval_param->string = new std::string("_sysy_stoptime"); INJECT_CALL_LINE(); return IDENTIFIER;
+"__LINE__"                          yylval_param->string = new std::string(std::to_string(yyget_lineno(yyscanner))); return INTEGER_VALUE;
+"_SYSY_N"                           yylval_param->string = new std::string(std::to_string(1024)); return INTEGER_VALUE;
+\"(\\.|[^"\\])*\"                   {
+                                        std::string s;
+                                        for (int i = 1; i < yyleng - 1; i++) {
+                                            if (yytext[i] == '\\') {
+                                                i++;
+                                                switch (yytext[i]) {
+                                                    case 'n':  s += '\n'; break;
+                                                    case 't':  s += '\t'; break;
+                                                    case 'r':  s += '\r'; break;
+                                                    case '0':  s += '\0'; break;
+                                                    case '\\': s += '\\'; break;
+                                                    case '"':  s += '"';  break;
+                                                    default:   s += yytext[i]; break;
+                                                }
+                                            } else {
+                                                s += yytext[i];
+                                            }
+                                        }
+                                        yylval_param->string = new std::string(s);
+                                        return STRING_VALUE;
+                                    }
 [a-zA-Z_][a-zA-Z0-9_]*              SAVE_TOKEN; return IDENTIFIER;
-[0-9]+                              SAVE_TOKEN; return INTEGER_VALUE;
-"0x"[0-9a-fA-F]+                    SAVE_TOKEN; return INTEGER_VALUE;
+[0-9]+\.[0-9]*([eE][+-]?[0-9]+)?[fFlL]?   SAVE_TOKEN; return FLOAT_VALUE;
+\.[0-9]+([eE][+-]?[0-9]+)?[fFlL]?         SAVE_TOKEN; return FLOAT_VALUE;
+[0-9]+[eE][+-]?[0-9]+[fFlL]?              SAVE_TOKEN; return FLOAT_VALUE;
+[0-9]+[uUlL]{0,3}                   SAVE_TOKEN; return INTEGER_VALUE;
+"0x"[0-9a-fA-F]+[uUlL]{0,3}         SAVE_TOKEN; return INTEGER_VALUE;
+\'(\\.|[^\\\'\n])+\'                {
+                                        // 字符字面量：解转义后按 GCC 约定大端打包为 int，
+                                        // 以十进制字符串形式复用 INTEGER_VALUE 通路
+                                        std::uint32_t packed = 0;
+                                        for (int i = 1; i < yyleng - 1; i++) {
+                                            char c = yytext[i];
+                                            if (c == '\\') {
+                                                i++;
+                                                switch (yytext[i]) {
+                                                    case 'n':  c = '\n'; break;
+                                                    case 't':  c = '\t'; break;
+                                                    case 'r':  c = '\r'; break;
+                                                    case '0':  c = '\0'; break;
+                                                    case '\\': c = '\\'; break;
+                                                    case '\'': c = '\''; break;
+                                                    case '"':  c = '"';  break;
+                                                    default:   c = yytext[i]; break;
+                                                }
+                                            }
+                                            packed = packed * 256 +
+                                                     static_cast<unsigned char>(c);
+                                        }
+                                        yylval_param->string =
+                                            new std::string(std::to_string(
+                                                static_cast<std::int32_t>(packed)));
+                                        return INTEGER_VALUE;
+                                    }
 
 "="                                 return TOKEN(ASSIGN);
 "=="                                return TOKEN(EQ);
@@ -111,6 +179,6 @@ int yycolumn = 1;
 "%"                                 return TOKEN(MOD);
 "!"                                 return TOKEN(NOT);
 
-.                                   yyerror((std::string("Unknown token: ") + yytext).c_str()); yyterminate();
+.                                   yylex_error(yyscanner, (std::string("Unknown token: ") + yytext).c_str()); yyterminate();
 
 %%

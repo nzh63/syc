@@ -1,0 +1,27 @@
+bool g = 1;
+bool h = 0;
+bool idb(bool x) { return x; }
+int take(bool a, bool b) { return a * 10 + b; }
+
+int main() {
+  int a = 3, b = 7;
+  bool p = a < b;
+  bool q = b <= a;
+  bool t = true, f = false;
+  float ff = 0.5;
+  bool fb = ff;
+  bool fz = 0.0f * 1.0f;
+  double d = 2.5;
+  bool db = d - 2.5;
+  // 比较表达式可以直接赋值给 int
+  int ti = a < b;
+  int tu = a > b;
+  p = p && (a != b);
+  while (a < b) { a = a + 5; }
+  printf("%d %d %d %d %d %d %d\n", p, q, t, f, fb, fz, db);
+  printf("%d %d\n", ti, tu);
+  printf("%d %d %d\n", idb(42), idb(0), take(a < b, 9));
+  printf("%d %d\n", g, h);
+  printf("%d %d %d\n", !p, p || f, t && !f);
+  return !(1 > 2);
+}

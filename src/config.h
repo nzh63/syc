@@ -21,15 +21,19 @@
 #include <iostream>
 #include <string>
 
-namespace syc::config {
-extern int optimize_level;
-extern bool print_ast;
-extern bool print_ir;
-extern bool print_log;
-extern bool enable_dwarf2;
-extern FILE* input;
-extern std::ostream* output;
-extern std::string input_filename;
+namespace syc {
+struct Config {
+  int optimize_level = 0;
+  bool print_ast = false;
+  bool print_ir = false;
+  bool print_log = false;
+  bool enable_dwarf2 = false;
+  FILE* input = stdin;
+  std::ostream* output = &std::cout;
+  std::string input_filename = "<stdin>";
 
-void parse_arg(int argc, char** argv);
-}  // namespace syc::config
+  // 按命令行约定解析（argv[0] 为程序名，忽略）
+  static Config parse_arg(int argc, char** argv);
+};
+
+}  // namespace syc

@@ -1,0 +1,11 @@
+// 基本类型（char/short 及其符号性）的截断与扩展语义
+int main() {
+    char c = 200;           // 按无符号解释：200
+    signed char sc = 200;   // 截断后符号扩展：-56
+    unsigned short us = 70000;  // 70000 - 65536 = 4464
+    putf("%d %d %d\n", c, sc, us);
+    c = c + 1;              // 提升为 int 参与运算，写回时再截断
+    putf("%d\n", c);
+    putf("%c%c\n", 'H', 105);
+    return 0;
+}

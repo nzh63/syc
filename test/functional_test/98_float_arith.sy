@@ -1,0 +1,26 @@
+// 浮点四则运算与类型提升
+int main() {
+  float a = 1.5f;
+  float b = 2.25f;
+  double d = 1.5;
+  double e = 2.25;
+  putf("%f\n", a + b);
+  putf("%f\n", a - b);
+  putf("%f\n", a * b);
+  putf("%f\n", a / b);
+  putf("%f\n", d + e);
+  putf("%f\n", d * e);
+  putf("%f\n", d / e);
+  putf("%f\n", -a);
+  putf("%f\n", -d);
+  int i = 7;
+  putf("%f\n", i + a);
+  putf("%f\n", i + d);
+  putf("%f\n", a + d);
+  float f2 = a * i;
+  putf("%f\n", f2);
+  putf("%f\n", 0.1 + 0.2);
+  double big = 123456.789;
+  putf("%f\n", big);
+  return 0;
+}

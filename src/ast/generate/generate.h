@@ -17,11 +17,32 @@
  */
 #pragma once
 
+#include <atomic>
 #include <cstdlib>
+#include <memory>
 
 #include "ast/node.h"
 
 namespace syc::ast {
-extern syc::ast::node::Root* root;
-syc::ast::node::Root* generate(FILE* input = stdin);
+
+class Parser {
+ public:
+  Parser() = default;
+  ~Parser();
+  Parser(const Parser&) = delete;
+  Parser& operator=(const Parser&) = delete;
+
+  // 解析 SysY 源文件，返回 AST；语法/词法错误时抛 std::runtime_error
+  // （消息带 input_filename 前缀）
+  std::unique_ptr<node::Root> parse(
+      FILE* input = stdin, const std::string& input_filename = "<stdin>");
+
+  // —— 以下供 bison 动作（parser.y）访问 ——
+  node::Root* root = nullptr;  // CompUnit 归约时写入
+  void* scanner = nullptr;     // flex scanner（yyscan_t）
+  std::string input_filename;
+};
+
+std::unique_ptr<syc::ast::node::Root> generate(
+    FILE* input = stdin, const std::string& input_filename = "<stdin>");
 }  // namespace syc::ast

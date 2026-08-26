@@ -18,9 +18,12 @@
 #pragma once
 #include <ostream>
 
+#include "config.h"
+#include "config.h"
 #include "ir/ir.h"
 
 namespace syc::assembly {
-void generate(ir::IRList& irs, std::ostream& out);
-void generate(ir::IRList& irs, std::ostream& out, std::ostream& log_out);
+void generate(ir::IRList& irs, std::ostream& out, const syc::Config& cfg);
+void generate(ir::IRList& irs, std::ostream& out, std::ostream& log_out,
+              const syc::Config& cfg);
 }  // namespace syc::assembly

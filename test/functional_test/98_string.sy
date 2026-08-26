@@ -1,0 +1,11 @@
+int main() {
+    int i;
+    for (i = 0; i < 3; i = i + 1) {
+        putf("i = %d\n", i);
+    }
+    putf("same string\n");
+    putf("same string\n");
+    putf("tab\there\n");
+    putf("");
+    return 98;
+}

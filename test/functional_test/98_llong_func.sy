@@ -1,0 +1,35 @@
+long long g_acc = 0LL;
+long long g_arr[4];
+
+long long mul10(long long x) {
+  g_acc = g_acc + x;
+  return x * 10LL;
+}
+
+int sum64(long long a[], int len) {
+  int i = 0;
+  long long s = 0LL;
+  while (i < len) {
+    s = s + a[i];
+    i = i + 1;
+  }
+  putint(s / 4294967296LL);
+  putch(10);
+  return s;
+}
+
+int main() {
+  long long v = mul10(4294967296LL);
+  putint(v / 4294967296LL);
+  putch(10);
+  putint(g_acc / 4294967296LL);
+  putch(10);
+  g_arr[0] = 1LL;
+  g_arr[1] = 4294967296LL;
+  g_arr[2] = 4294967296LL * 2LL;
+  g_arr[3] = -1LL;
+  int t = sum64(g_arr, 4);
+  putint(t);
+  putch(10);
+  return 0;
+}

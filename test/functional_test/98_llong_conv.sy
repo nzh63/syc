@@ -1,0 +1,31 @@
+int main() {
+  unsigned long long u = 18446744073709551615ULL;
+  long long s = -123456789012345LL;
+  unsigned int ui = 4294967295U;
+  int si = -7;
+  long long z = ui;
+  long long x = si;
+  putint(z / 65536);
+  putch(10);
+  putint(x);
+  putch(10);
+  int tr = u;
+  putint(tr);
+  putch(10);
+  int tr2 = s;
+  putint(tr2);
+  putch(10);
+  char c = 200;
+  long long lc = c;
+  long long lz = ui;
+  if (lc == 200) putch(84); else putch(70);
+  putch(10);
+  short sh = -300;
+  long long lsh = sh;
+  putint(lsh);
+  putch(10);
+  long long back = u;
+  putint(back / 4294967296LL);
+  putch(10);
+  return 0;
+}
