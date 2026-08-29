@@ -20,6 +20,7 @@
 #include <memory>
 #include <stack>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -105,12 +106,19 @@ class Context {
   bool in_loop();
 
   std::stack<std::string> loop_label;
-  std::stack<std::vector<SymbolTable>> loop_continue_symbol_snapshot;
-  std::stack<std::vector<SymbolTable>> loop_break_symbol_snapshot;
-  std::stack<std::map<std::pair<int, std::string>, std::string>>
-      loop_continue_phi_move;
-  std::stack<std::map<std::pair<int, std::string>, std::string>>
-      loop_break_phi_move;
+  // 循环出口 phi 的候选变量，由 WhileStatement 在生成循环体前静态计算
+  // （AST 预扫描被赋值的源变量）：{作用域下标, 源变量名, 循环入口 IR 名}。
+  // break 首次出现时把入口名物化为写回目标；continue 首次出现时为每个
+  // 候选物化一个新的稳定名——没有 break/continue 的循环不产生任何
+  // 出口搬移。物化可能发生在循环体深处的 Context 副本（if 分支等）里，
+  // 因此以 shared_ptr 持有，副本之间共享同一份状态（同 string_pool）。
+  struct LoopExitInfo {
+    std::vector<std::tuple<int, std::string, std::string>> vars;
+    bool materialized = false;
+    std::map<std::pair<int, std::string>, std::string> phi_move;
+  };
+  std::stack<std::shared_ptr<LoopExitInfo>> loop_break_info;
+  std::stack<std::shared_ptr<LoopExitInfo>> loop_continue_info;
   std::stack<std::vector<std::string>> loop_var{};
 
   // Shared across Context copies: loop-body generation (WhileStatement) runs

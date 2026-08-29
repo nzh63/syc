@@ -58,6 +58,94 @@ void BaseNode::generate_ir(ir::Context& ctx, ir::IRList& ir) {
   backfill_position(ir, begin, this->line, this->column);
 }
 
+// ── collect_assigned：递归收集子树中被赋值（含自增）的源变量名 ──────────
+// 默认实现为无操作（Identifier/Number 等叶子与所有未覆写的节点），
+// 复合节点各自下钻到子节点。
+void BaseNode::collect_assigned(AssignedSet&) {}
+
+void Assignment::collect_assigned(AssignedSet& out) {
+  if (auto arr = dynamic_cast<ArrayIdentifier*>(this->lhs.get())) {
+    for (auto& idx : arr->shape) idx->collect_assigned(out);
+  } else {
+    out.insert(this->lhs->name);
+  }
+  this->rhs->collect_assigned(out);
+}
+
+void AfterInc::collect_assigned(AssignedSet& out) {
+  out.insert(this->lhs->name);
+}
+
+void BinaryExpression::collect_assigned(AssignedSet& out) {
+  this->lhs->collect_assigned(out);
+  this->rhs->collect_assigned(out);
+}
+
+void UnaryExpression::collect_assigned(AssignedSet& out) {
+  this->rhs->collect_assigned(out);
+}
+
+void ConditionExpression::collect_assigned(AssignedSet& out) {
+  this->value->collect_assigned(out);
+}
+
+void CommaExpression::collect_assigned(AssignedSet& out) {
+  for (auto& v : this->values) v->collect_assigned(out);
+}
+
+void FunctionCall::collect_assigned(AssignedSet& out) {
+  for (auto& a : this->args->args) a->collect_assigned(out);
+}
+
+void ArrayIdentifier::collect_assigned(AssignedSet& out) {
+  for (auto& idx : this->shape) idx->collect_assigned(out);
+}
+
+void Block::collect_assigned(AssignedSet& out) {
+  for (auto& i : this->statements) i->collect_assigned(out);
+}
+
+void WhileStatement::collect_assigned(AssignedSet& out) {
+  this->cond->collect_assigned(out);
+  this->dostmt->collect_assigned(out);
+}
+
+void IfElseStatement::collect_assigned(AssignedSet& out) {
+  this->cond->collect_assigned(out);
+  this->thenstmt->collect_assigned(out);
+  this->elsestmt->collect_assigned(out);
+}
+
+void ReturnStatement::collect_assigned(AssignedSet& out) {
+  if (this->value) this->value->collect_assigned(out);
+}
+
+void EvalStatement::collect_assigned(AssignedSet& out) {
+  this->value->collect_assigned(out);
+}
+
+void DeclareStatement::collect_assigned(AssignedSet& out) {
+  for (auto& item : this->list) item->collect_assigned(out);
+}
+
+void VarDeclareWithInit::collect_assigned(AssignedSet& out) {
+  this->value->collect_assigned(out);
+}
+
+void ArrayDeclareWithInit::collect_assigned(AssignedSet& out) {
+  for (auto& idx : this->name->shape) idx->collect_assigned(out);
+  this->value->collect_assigned(out);
+}
+
+void ArrayDeclare::collect_assigned(AssignedSet& out) {
+  for (auto& idx : this->name->shape) idx->collect_assigned(out);
+}
+
+void ArrayDeclareInitValue::collect_assigned(AssignedSet& out) {
+  if (this->value) this->value->collect_assigned(out);
+  for (auto& sub : this->value_list) sub->collect_assigned(out);
+}
+
 std::int64_t Expression::eval(ir::Context& ctx) {
   return this->_eval(ctx);
 }

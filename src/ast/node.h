@@ -20,6 +20,7 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "ast/type.h"
@@ -39,6 +40,10 @@ namespace types = ast::types;
 namespace ast::node {
 class BaseNode;
 BaseNode* current();
+
+// 被赋值源变量名的收集目标（WhileStatement 的循环携带 phi 静态分析用）
+using AssignedSet = std::unordered_set<std::string>;
+
 class BaseNode {
  public:
   int line, column;
@@ -50,6 +55,9 @@ class BaseNode {
   void print_indentation(int indentation = 0, bool end = false,
                          std::ostream& out = std::cerr);
   void generate_ir(ir::Context& ctx, ir::IRList& ir);
+  // 递归收集子树中被赋值（含自增）的源变量名；叶子节点默认无操作，
+  // 复合节点各自下钻到子节点
+  virtual void collect_assigned(AssignedSet& out);
 
  protected:
   virtual void _generate_ir(ir::Context& ctx, ir::IRList& ir);
@@ -111,6 +119,7 @@ class ConditionExpression : public Expression {
  public:
   std::shared_ptr<Expression> value;
   ConditionExpression(std::shared_ptr<Expression> value);
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 
@@ -129,6 +138,7 @@ class BinaryExpression : public Expression {
   std::shared_ptr<Expression> rhs;
   BinaryExpression(std::shared_ptr<Expression> lhs, int op,
                    std::shared_ptr<Expression> rhs);
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 
@@ -146,6 +156,7 @@ class UnaryExpression : public Expression {
   int op;
   std::shared_ptr<Expression> rhs;
   UnaryExpression(int op, std::shared_ptr<Expression> rhs);
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 
@@ -161,6 +172,7 @@ class CommaExpression : public Expression {
  public:
   std::vector<std::shared_ptr<Expression>> values;
   CommaExpression() = default;
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 
@@ -185,6 +197,7 @@ class FunctionCall : public Expression {
   std::shared_ptr<FunctionCallArgList> args;
   FunctionCall(std::shared_ptr<Identifier> name,
                std::shared_ptr<FunctionCallArgList> args);
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 
@@ -227,6 +240,7 @@ class StringLiteral : public Expression {
 class Block : public Statement {
  public:
   std::vector<std::shared_ptr<Statement>> statements;
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 
@@ -239,6 +253,7 @@ class Assignment : public Statement {
   std::shared_ptr<Identifier> lhs;
   std::shared_ptr<Expression> rhs;
   Assignment(std::shared_ptr<Identifier> lhs, std::shared_ptr<Expression> rhs);
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 
@@ -256,6 +271,7 @@ class AfterInc : public Statement {
   int op;
   std::shared_ptr<Identifier> lhs;
   AfterInc(std::shared_ptr<Identifier> lhs, int op);
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 
@@ -276,6 +292,7 @@ class IfElseStatement : public Statement {
   IfElseStatement(std::shared_ptr<ConditionExpression> cond,
                   std::shared_ptr<Statement> thenstmt,
                   std::shared_ptr<Statement> elsestmt);
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 
@@ -289,6 +306,7 @@ class WhileStatement : public Statement {
   std::shared_ptr<Statement> dostmt;
   WhileStatement(std::shared_ptr<ConditionExpression> cond,
                  std::shared_ptr<Statement> dostmt);
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 
@@ -316,6 +334,7 @@ class ReturnStatement : public Statement {
  public:
   std::shared_ptr<Expression> value;
   ReturnStatement(std::shared_ptr<Expression> value = nullptr);
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 
@@ -327,6 +346,7 @@ class EvalStatement : public Statement {
  public:
   std::shared_ptr<Expression> value;
   EvalStatement(std::shared_ptr<Expression> value);
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 
@@ -352,6 +372,7 @@ class DeclareStatement : public Statement {
   std::vector<std::shared_ptr<Declare>> list;
   TypeInfo ty{TypeId::INT};
   DeclareStatement(TypeInfo ty);
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 
@@ -365,6 +386,7 @@ class ArrayDeclareInitValue : public Expression {
   std::shared_ptr<Expression> value;
   std::vector<std::shared_ptr<ArrayDeclareInitValue>> value_list;
   ArrayDeclareInitValue(bool is_number, std::shared_ptr<Expression> value);
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 };
@@ -376,6 +398,7 @@ class VarDeclareWithInit : public Declare {
   bool is_const;
   VarDeclareWithInit(std::shared_ptr<Identifier> name,
                      std::shared_ptr<Expression> value, bool is_const = false);
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 
@@ -399,6 +422,7 @@ class ArrayIdentifier : public Identifier {
   std::shared_ptr<Identifier> name;
   std::vector<std::shared_ptr<Expression>> shape;
   ArrayIdentifier(std::shared_ptr<Identifier> name);
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
   virtual std::int64_t _eval(ir::Context& ctx);
@@ -418,6 +442,7 @@ class ArrayDeclareWithInit : public Declare {
   ArrayDeclareWithInit(std::shared_ptr<ArrayIdentifier> name,
                        std::shared_ptr<ArrayDeclareInitValue> value,
                        bool is_const = false);
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 
@@ -429,6 +454,7 @@ class ArrayDeclare : public Declare {
  public:
   std::shared_ptr<ArrayIdentifier> name;
   ArrayDeclare(std::shared_ptr<ArrayIdentifier> name);
+  void collect_assigned(AssignedSet& out) override;
   virtual void print(int indentation = 0, bool end = false,
                      std::ostream& out = std::cerr);
 
