@@ -443,6 +443,34 @@ void set_flags_sub(Flags& f, uint32_t a, uint32_t b, uint32_t r) {
   f.V = ((((a ^ b) & (a ^ r)) >> 31) & 1) != 0;
 }
 
+// Estimated cycle cost per instruction, calibrated on Cortex-A9 class
+// ARMv7-A hardware (DDI0388 Appendix B; measured tables on
+// hardwarebug.org): 1-cycle ALU, 4-stage multiplier (MUL/SMULL), 3-cycle
+// load-to-use latency, and the VFP latencies (VDIV being the extreme).
+// A condition-false instruction still costs one fetch/dispatch cycle.
+unsigned inst_cycles(const Inst& I) {
+  // MOV32 is a pseudo-instruction: on real hardware it expands to
+  // MOVW+MOVT (or a literal-pool LDR), so it costs two cycles.
+  switch (I.op) {
+    case Op::MOV32: return 2;
+    case Op::MUL: return 5;
+    case Op::SMULL: return 6;
+    case Op::LDR: return 3;
+    case Op::VMOV: return 4;
+    case Op::VADD:
+    case Op::VSUB:
+    case Op::VMUL:
+    case Op::VCMP:
+    case Op::VCVT: return I.dbl ? 7 : 4;
+    case Op::VDIV: return I.dbl ? 32 : 18;
+    case Op::VLDR: return 3;
+    case Op::VSTR: return 2;
+    case Op::B:
+    case Op::BL: return 2;
+    default: return 1;
+  }
+}
+
 }  // namespace
 
 const std::unordered_map<std::string, NativeFn>& natives() {
@@ -481,6 +509,7 @@ static int run_impl(Machine& M, const RunOptions& opts) {
                         std::to_string(opts.max_steps) + ")");
 
       const Inst& I = text[(size_t)pc].inst;
+      M.cycle_count += inst_cycles(I);
       long long next_pc = pc + 1;
       static const bool trace_enabled = getenv("ARMSIM_TRACE") != nullptr;
       if (trace_enabled)
@@ -745,7 +774,7 @@ static int run_impl(Machine& M, const RunOptions& opts) {
                   std::chrono::steady_clock::now() - start_time)
                   .count();
     std::cerr << "[armsim] executed " << M.step_count << " instructions in "
-              << ms << " ms" << std::endl;
+              << ms << " ms (~" << M.cycle_count << " cycles)" << std::endl;
   }
   return (int)(M.regs[0] & 0xFF);
 }
@@ -776,6 +805,8 @@ RunResult run_buffered(Program& prog, const std::string& stdin_data,
   M.stdin_buf = stdin_data;
   M.out_sink = &res.out;
   res.exit_code = run_impl(M, opts);
+  res.step_count = M.step_count;
+  res.cycle_count = M.cycle_count;
   return res;
 }
 

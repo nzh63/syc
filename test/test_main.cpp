@@ -52,9 +52,11 @@
 #define NOMINMAX
 #include <windows.h>
 #else
-#include <csignal>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include <csignal>
+
 #endif
 
 namespace fs = std::filesystem;
@@ -114,6 +116,20 @@ long get_pid() {
 #endif
 }
 
+// 1234567 -> "1.23M", 12345 -> "12.3K" (instruction count display)
+std::string compact_count(unsigned long long v) {
+  char buf[32];
+  if (v >= 1000000000)
+    snprintf(buf, sizeof(buf), "%.2fB", v / 1e9);
+  else if (v >= 1000000)
+    snprintf(buf, sizeof(buf), "%.2fM", v / 1e6);
+  else if (v >= 1000)
+    snprintf(buf, sizeof(buf), "%.1fK", v / 1e3);
+  else
+    snprintf(buf, sizeof(buf), "%llu", v);
+  return buf;
+}
+
 void print_indented(const std::string& text, const char* pad) {
   std::istringstream ss(text);
   std::string line;
@@ -160,7 +176,8 @@ ChildResult run_child(const std::vector<std::string>& args,
   si.hStdError = err_w;
   PROCESS_INFORMATION pi{};
 
-  std::vector<char> cmdline_buf;  // CreateProcessA may write to its lpCommandLine
+  std::vector<char>
+      cmdline_buf;  // CreateProcessA may write to its lpCommandLine
   {
     std::string cmdline;
     for (size_t i = 0; i < args.size(); i++) {
@@ -286,10 +303,9 @@ ChildResult run_child(const std::vector<std::string>& args,
     close(in_p[1]);
   });
 
-  auto deadline =
-      timeout_ms == 0 ? std::chrono::steady_clock::time_point::max()
-                      : std::chrono::steady_clock::now() +
-                            std::chrono::milliseconds(timeout_ms);
+  auto deadline = timeout_ms == 0 ? std::chrono::steady_clock::time_point::max()
+                                  : std::chrono::steady_clock::now() +
+                                        std::chrono::milliseconds(timeout_ms);
   int status = 0;
   bool done = false;
   for (;;) {
@@ -332,6 +348,8 @@ struct CaseResult {
   std::string expect;
   std::string got;
   std::string stderr_text;
+  unsigned long long steps = 0;   // dynamic instruction count (armsim only)
+  unsigned long long cycles = 0;  // estimated cycle count (armsim only)
 };
 
 struct ModeConfig {
@@ -342,9 +360,8 @@ struct ModeConfig {
 };
 
 ModeConfig config_for(const std::string& mode) {
-  if (mode == "performance")
-    return {"performance_test", {"-O2"}, 22, 300000};
-  return {"functional_test", {"-O0", "-O0 -g", "-O2", "-O2 -g"}, 8, 15000};
+  if (mode == "performance") return {"performance_test", {"-O2"}, 22, 300000};
+  return {"functional_test", {"-O0 -g", "-O0", "-O2 -g", "-O2"}, 8, 15000};
 }
 
 int main(int argc, char** argv) {
@@ -372,8 +389,9 @@ int main(int argc, char** argv) {
     else if (a == "--timeout")
       timeout_override = atol(next_value("--timeout").c_str());
     else if (a == "-h" || a == "--help") {
-      fprintf(stderr, "usage: syc-test [functional|performance]\n"
-                      "                [--gcc] [--jobs N] [--timeout SECONDS]\n");
+      fprintf(stderr,
+              "usage: syc-test [functional|performance]\n"
+              "                [--gcc] [--jobs N] [--timeout SECONDS]\n");
       return 0;
     } else {
       positional.push_back(a);
@@ -398,13 +416,13 @@ int main(int argc, char** argv) {
   }
 
   if (jobs_override >= 0) cfg.jobs = (int)jobs_override;
-  if (timeout_override >= 0) cfg.timeout_ms = (unsigned)timeout_override * 1000u;
+  if (timeout_override >= 0)
+    cfg.timeout_ms = (unsigned)timeout_override * 1000u;
 
   // scratch directory for generated assembly; kept when something fails so
   // the reported asm-file paths remain inspectable
   fs::path tmp_dir =
-      fs::temp_directory_path() /
-      ("syc-test-" + std::to_string(get_pid()));
+      fs::temp_directory_path() / ("syc-test-" + std::to_string(get_pid()));
   std::error_code ec;
   fs::remove_all(tmp_dir, ec);
   fs::create_directories(tmp_dir, ec);
@@ -442,7 +460,8 @@ int main(int argc, char** argv) {
         cr.opt = opt;
         cr.expect = norm(expect_out);
 
-        std::string asm_file = (tmp_dir / (base.filename().string() + opt + ".s")).string();
+        std::string asm_file =
+            (tmp_dir / (base.filename().string() + opt + ".s")).string();
 
         auto fail_now = [&]() {
           cr.pass = false;
@@ -494,10 +513,11 @@ int main(int argc, char** argv) {
             std::ifstream in(asm_file, std::ios::binary);
             if (!in) throw std::runtime_error("cannot open " + asm_file);
             armsim::Program prog = armsim::parse(in);
-            armsim::RunResult rr =
-                armsim::run_buffered(prog, stdin_data);
+            armsim::RunResult rr = armsim::run_buffered(prog, stdin_data);
             run.out = rr.out;
             run.exit_code = rr.exit_code;
+            cr.steps = rr.step_count;
+            cr.cycles = rr.cycle_count;
           } catch (const std::exception& e) {
             run.exit_code = 125;
             run.err = e.what();
@@ -505,8 +525,8 @@ int main(int argc, char** argv) {
         }
 
         // 3. compare "<stdout>\n<exit code>" with the .out expectation
-        cr.got =
-            trim_copy(norm(run.out) + '\n' + std::to_string(run.exit_code & 0xFF));
+        cr.got = trim_copy(norm(run.out) + '\n' +
+                           std::to_string(run.exit_code & 0xFF));
         cr.stderr_text = run.err;
         cr.pass = cr.expect == cr.got;
         results.push_back(cr);
@@ -521,18 +541,25 @@ int main(int argc, char** argv) {
       std::lock_guard<std::mutex> lock(g_io_mutex);
       if (pass) {
         ++pass_count;
-        // 用例耗时：灰色显示，超过 1 秒标红
+        // 用例耗时与指令数：灰色显示，超过 1 秒标红
         std::string ms_note =
             (ms >= 1000 ? std::string(kRed) : std::string(kGray)) + " (" +
             std::to_string(ms) + "ms)";
-        printf(" \x1B[32m\xe2\x9c\x93%s %s.sy%s%s\n", kReset,
-               base.string().c_str(), ms_note.c_str(), kReset);
+        // 展示最后一组优化选项（通常为 -O2）的动态指令数
+        unsigned long long steps = results.empty() ? 0 : results.back().steps;
+        std::string step_note;
+        if (steps)
+          step_note = std::string(kGray) + " [" + results.back().opt + ": " +
+                      compact_count(steps) + " ins, ~" +
+                      compact_count(results.back().cycles) + " cy]" + kReset;
+        printf(" \x1B[32m\xe2\x9c\x93%s %s.sy%s%s%s\n", kReset,
+               base.string().c_str(), ms_note.c_str(), step_note.c_str(),
+               kReset);
         fflush(stdout);
       } else {
         ++fail_count;
         any_fail = true;
-        printf(" \x1B[31m\xe2\x9c\x97 %s.sy\x1B[0m\n",
-               base.string().c_str());
+        printf(" \x1B[31m\xe2\x9c\x97 %s.sy\x1B[0m\n", base.string().c_str());
         for (const auto& cr : results) {
           if (cr.pass) continue;
           printf("  %s\n", cr.opt.c_str());

@@ -144,6 +144,8 @@ int run(Program& prog, const RunOptions& opts);
 struct RunResult {
   int exit_code = 0;
   std::string out;
+  unsigned long long step_count = 0;  // dynamic instruction count
+  unsigned long long cycle_count = 0;
 };
 
 // In-process variant of run(): stdin/stdout are provided/captured via memory
@@ -169,6 +171,7 @@ struct Machine {
   uint32_t s[32] = {};
   Flags fp_flags;
   unsigned long long step_count = 0;
+  unsigned long long cycle_count = 0;
   // guest stdout accumulated by the native runtime (putint/printf/...)
   std::string stdout_buf;
   // pending guest stdin, consumed by getint/getch/getarray
