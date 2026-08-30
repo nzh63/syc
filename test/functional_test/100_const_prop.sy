@@ -1,0 +1,18 @@
+int sq(int x) { return x * x; }
+int g;
+int inc_g() { g = g + 1; return g; }
+
+int main() {
+  int a = sq(7);
+  int b = 0;
+  if (a > 40) b = 1; else b = 2;
+  int c = 0;
+  int i = 0;
+  while (i < 5) { c = c + i * 2; i = i + 1; }
+  int dead = sq(3) + inc_g();
+  int d = sq(6) + sq(6);
+  putint(a + b * 100 + c);
+  putint(g);
+  putint(d);
+  return 0;
+}

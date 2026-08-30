@@ -22,6 +22,21 @@
 
 namespace syc::ir::passes {
 void unreachable_code_elimination(IRList &ir) {
+  // JMP 到紧随其后的 LABEL：跳转冗余，直接删除（不留白吃分支惩罚）
+  for (auto it = ir.begin(); it != ir.end();) {
+    if (it->op_code == OpCode::JMP && !it->label.empty()) {
+      auto next = std::next(it);
+      while (next != ir.end() && (next->op_code == OpCode::NOOP ||
+                                  next->op_code == OpCode::INFO))
+        next++;
+      if (next != ir.end() && next->op_code == OpCode::LABEL &&
+          next->label == it->label) {
+        it = ir.erase(it);
+        continue;
+      }
+    }
+    it++;
+  }
   for (auto it = ir.begin(); it != ir.end(); it++) {
     if (it->op_code == OpCode::RET || it->op_code == OpCode::JMP) {
       for (auto next = std::next(it); next != ir.end();) {

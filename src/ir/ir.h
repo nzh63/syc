@@ -69,8 +69,8 @@ enum class OpCode {
   FNEG,             // dest(浮点 ty) = -op1
   SITOF,            // dest(浮点 ty) = (浮点)(int32_t)op1（ARM64 SCVTF）
   UITOF,            // dest(浮点 ty) = (浮点)(uint32_t)op1（ARM64 UCVTF）
-  F2I,              // dest = (int32_t)op1 向零截断（ARM64 FCVTZS）
-  F2U,              // dest = (uint32_t)op1 向零截断（ARM64 FCVTZU）
+  F2I,              // dest = (int32_t)op1 向零截断（ARM64 FCVTZS）；ty 记录源浮点宽度
+  F2U,              // dest = (uint32_t)op1 向零截断（ARM64 FCVTZU）；ty 记录源浮点宽度
   F2F,              // dest(浮点 ty) = 浮点宽度转换 op1（F32<->F64，FCVT）
   SET_ARG,          // if dest < 4: R(dest)) = op1 else: push_stack(op1)
   CALL,             // call label
@@ -123,6 +123,8 @@ class IR {
   // dest 的类型：宽度 8 的指令按 64 位解释操作数与结果，
   // LLONG/ULLONG 的符号性供 CMP 等运算区分；
   // FLOAT/DOUBLE 的指令按浮点解释（后端走 VFP 寄存器路径）。
+  // 例外：F2I/F2U 的 dest 是 32 位整型，ty 记录源浮点宽度
+  //（op1 位模式的解释方式，供折叠/求值与 VCVT 变体选择）。
   types::TypeInfo ty{types::TypeId::INT};
   std::string label;
   OpName op1, op2, op3, dest;

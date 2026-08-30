@@ -1,0 +1,23 @@
+// FIR 滤波：float 数组 + 内积循环，VFP 运算密集
+float x[200000];
+float coeff[32];
+
+int main() {
+  int n = 200000;
+  int taps = 32;
+  for (int i = 0; i < n; i = i + 1) x[i] = (i % 251) / 251.0;
+  for (int k = 0; k < taps; k = k + 1) coeff[k] = (k % 7 - 3) / 8.0;
+  float acc = 0.0;
+  for (int round = 0; round < 8; round = round + 1) {
+    for (int i = taps; i < n; i = i + 1) {
+      float s = 0.0;
+      for (int k = 0; k < taps; k = k + 1) s = s + x[i - k] * coeff[k];
+      acc = acc + s;
+    }
+  }
+  // 定点化输出避免 %f 与宿主 CRT 的差异
+  int out = acc * 1000;
+  putint(out);
+  putch(10);
+  return 0;
+}

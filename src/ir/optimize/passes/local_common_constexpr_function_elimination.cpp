@@ -24,38 +24,11 @@
 #include "assembly/generate/context.h"
 #include "config.h"
 #include "ir/ir.h"
+#include "ir/optimize/passes/pure_function_analysis.h"
 
 namespace syc::ir::passes {
-namespace {
-bool is_constexpr_function(const IRList &irs, IRList::const_iterator begin,
-                           IRList::const_iterator end) {
-  for (auto it = begin; it != end; it++) {
-    auto &ir = *it;
-    if (ir.some(&OpName::is_global_var)) {
-      return false;
-    }
-    if (ir.op_code == OpCode::INFO && ir.label == "NOT CONSTEXPR") {
-      return false;
-    }
-  }
-  return true;
-}
-
-std::set<std::string> find_constexpr_function(const IRList &irs) {
-  std::set<std::string> ret;
-  IRList::const_iterator function_begin_it;
-  for (auto outter_it = irs.begin(); outter_it != irs.end(); outter_it++) {
-    auto &ir = *outter_it;
-    if (ir.op_code == OpCode::FUNCTION_BEGIN) {
-      function_begin_it = outter_it;
-    } else if (ir.op_code == OpCode::FUNCTION_END) {
-      if (is_constexpr_function(irs, function_begin_it, outter_it)) {
-        ret.insert(function_begin_it->label);
-      }
-    }
-  }
-  return ret;
-}
+// 纯函数（只依赖实参、无副作用）的调用是可 CSE 的：
+// 相同实参在同一基本块内重复调用直接复用此前结果。
 void _local_common_constexpr_function_elimination(
     IRList &ir, const std::set<std::string> &constexpr_function) {
   typedef std::unordered_map<int, OpName> CallArgs;
@@ -133,10 +106,9 @@ void _local_common_constexpr_function_elimination(
     }
   }
 }
-}  // namespace
 void local_common_constexpr_function_elimination(IRList &ir) {
   return _local_common_constexpr_function_elimination(
-      ir, find_constexpr_function(ir));
+      ir, analyze_pure_functions(ir));
 }
 
 }  // namespace syc::ir::passes

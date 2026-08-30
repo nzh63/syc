@@ -455,7 +455,8 @@ unsigned inst_cycles(const Inst& I) {
     case Op::MOV32: return 2;
     case Op::MUL: return 5;
     case Op::SMULL: return 6;
-    case Op::LDR: return 3;
+    case Op::LDR:
+      return 3;
     case Op::VMOV: return 4;
     case Op::VADD:
     case Op::VSUB:

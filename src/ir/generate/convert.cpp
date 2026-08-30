@@ -57,7 +57,9 @@ OpName convert_runtime(OpName v, types::TypeId src, types::TypeId dst,
     }
     OpName i32 = "%" + std::to_string(ctx.get_id());
     ir.emplace_back(is_signed(d) ? OpCode::F2I : OpCode::F2U, i32, v);
-    ir.back().ty = TypeInfo{TypeId::INT};
+    // dest 是 32 位整型；ty 记录源浮点宽度（位模式的解释方式），
+    // 供常量折叠/编译期求值解码，后端据此选择 VCVT 的 F32/F64 变体
+    ir.back().ty = TypeInfo{s};
     if (width_bytes(d) == 4) return i32;
     // 再按目标宽度截断规范化
     OpName dest = "%" + std::to_string(ctx.get_id());

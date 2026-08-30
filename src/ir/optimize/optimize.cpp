@@ -25,13 +25,21 @@
 namespace syc::ir {
 void optimize(IRList &ir) {
   using namespace syc::ir::passes;
+  inline_small_functions(ir);
+  tail_call_elimination(ir);
   for (int i = 0; i < 5; i++) {
     // local_common_subexpression_elimination(ir);
+    constant_propagation(ir);
+    constexpr_call_evaluation(ir);
+    branch_normalize_elimination(ir);
+    multiply_to_shift(ir);
+    loop_unrolling(ir);
     local_common_constexpr_function_elimination(ir);
     optimize_phi_var(ir);
     dead_code_elimination(ir);
     unreachable_code_elimination(ir);
   }
+  entry_point_evaluation(ir);
 }
 
 void optimize_loop_ir(IRList &ir_before, IRList &ir_cond, IRList &ir_jmp,

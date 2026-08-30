@@ -1,0 +1,45 @@
+// 快速排序：分支密集 + 数组访存 + 递归调用
+int a[100000];
+
+int lcg_next(int state) { return state * 1103515245 + 12345; }
+
+void quicksort(int lo, int hi) {
+  int i = lo;
+  int j = hi;
+  int pivot = a[(lo + hi) / 2];
+  while (i <= j) {
+    while (a[i] < pivot) i = i + 1;
+    while (a[j] > pivot) j = j - 1;
+    if (i <= j) {
+      int t = a[i];
+      a[i] = a[j];
+      a[j] = t;
+      i = i + 1;
+      j = j - 1;
+    }
+  }
+  if (lo < j) quicksort(lo, j);
+  if (i < hi) quicksort(i, hi);
+}
+
+int main() {
+  int state = 1;
+  int n = 100000;
+  int checksum = 0;
+  for (int round = 0; round < 50; round = round + 1) {
+    for (int i = 0; i < n; i = i + 1) {
+      state = lcg_next(state);
+      a[i] = state;
+    }
+    quicksort(0, n - 1);
+    // 校验和：排序结果应与位置相关
+    for (int i = 0; i < n; i = i + 1) checksum = checksum + a[i] % 97 * (i % 13 + 1);
+  }
+  putint(checksum);
+  putch(10);
+  putint(a[0]);
+  putch(32);
+  putint(a[n - 1]);
+  putch(10);
+  return 0;
+}

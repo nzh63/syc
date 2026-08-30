@@ -17,9 +17,17 @@
  */
 #pragma once
 
+#include "ir/optimize/passes/branch_normalize_elimination.h"
+#include "ir/optimize/passes/compile_time_evaluation.h"
+#include "ir/optimize/passes/constant_propagation.h"
 #include "ir/optimize/passes/dead_code_elimination.h"
+#include "ir/optimize/passes/inline_small_functions.h"
 #include "ir/optimize/passes/invariant_code_motion.h"
 #include "ir/optimize/passes/local_common_constexpr_function_elimination.h"
 #include "ir/optimize/passes/local_common_subexpression_elimination.h"
+#include "ir/optimize/passes/loop_unrolling.h"
+#include "ir/optimize/passes/multiply_to_shift.h"
 #include "ir/optimize/passes/optimize_phi_var.h"
+#include "ir/optimize/passes/pure_function_analysis.h"
+#include "ir/optimize/passes/tail_call_elimination.h"
 #include "ir/optimize/passes/unreachable_code_elimination.h"

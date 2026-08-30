@@ -115,7 +115,10 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
   for (auto it = begin; it != end; it++) {
     auto& ir = *it;
     if (!ir_fp(ir)) continue;
-    if (ir.dest.is_var()) ctx.mark_fp(ir.dest.name, ir.ty.id);
+    // F2I/F2U 的 dest 是 32 位整型（ty 记录的是源浮点宽度），不进 VFP 池
+    if (ir.dest.is_var() && ir.op_code != ir::OpCode::F2I &&
+        ir.op_code != ir::OpCode::F2U)
+      ctx.mark_fp(ir.dest.name, ir.ty.id);
     switch (ir.op_code) {
       case ir::OpCode::MOV:
       case ir::OpCode::PHI_MOV:
@@ -745,8 +748,9 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
     }
     else if (ir.op_code == ir::OpCode::F2I || ir.op_code == ir::OpCode::F2U) {
       // 浮点 → 32 位整数：VCVT 截断到 s 草稿，再送回核心寄存器
-      const bool srcdbl =
-          ir.op1.is_var() && ctx.fp_class(ir.op1.name) == Context::FpClass::F64;
+      // 源宽度取 ty（F2I/F2U 的 ty 记录源浮点类型），imm 操作数同样成立
+      const bool srcdbl = syc::ast::types::canonical(ir.ty.id) ==
+                          syc::ast::types::TypeId::DOUBLE;
       string areg;
       if (ir.op1.is_var() && ctx.var_in_freg(ir.op1.name)) {
         areg = fploc(ir.op1);
@@ -764,10 +768,10 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
       }
     }
     else if (ir.op_code == ir::OpCode::F2F) {
-      // 浮点宽度转换 F32 <-> F64
-      const bool dbl_d = ctx.fp_class(ir.dest.name) == Context::FpClass::F64;
-      const bool srcdbl =
-          ir.op1.is_var() && ctx.fp_class(ir.op1.name) == Context::FpClass::F64;
+      // 浮点宽度转换 F32 <-> F64（源宽度与 dest ty 相反，imm 操作数同样成立）
+      const bool dbl_d = syc::ast::types::canonical(ir.ty.id) ==
+                         syc::ast::types::TypeId::DOUBLE;
+      const bool srcdbl = !dbl_d;
       string areg;
       if (ir.op1.is_var() && ctx.var_in_freg(ir.op1.name)) {
         areg = fploc(ir.op1);
@@ -1175,7 +1179,9 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
                                       "VSTR");
           }
         } else {
-          // 先装值（load_freg 需要用 r12/r14 做草稿），后合成地址到 r12
+          // 先装值（load_freg 需要用 r12/r14 做草稿），后合成地址：
+          // 基址在寄存器时直接作基址寄存器，小偏移且按 4 对齐时用
+          // VSTR 自带偏移
           string vreg;
           if (ir.op3.is_var() && ctx.var_in_freg(ir.op3.name)) {
             vreg = fploc(ir.op3);
@@ -1183,20 +1189,31 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
             ctx.load_freg(dbl ? 28 : 30, dbl, ir.op3, out);
             vreg = dbl ? "d14" : "s30";
           }
-          ctx.load("r12", ir.op1, out);
+          bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);
+          string base =
+              op1_in_reg ? "r" + to_string(ctx.var_to_reg[ir.op1.name])
+                         : "r12";
+          if (!op1_in_reg) ctx.load("r12", ir.op1, out);
           if (ir.op2.is_imm()) {
-            if (ir.op2.value >= -4096 && ir.op2.value < 4096) {
-              if (ir.op2.value != 0)
-                out << "    ADD r12, r12, #" << ir.op2.value << endl;
+            long long v = ir.op2.value;
+            if (op1_in_reg && v == 0) {
+              out << "    VSTR " << vreg << ", [" << base << "]" << endl;
+            } else if (op1_in_reg && v % 4 == 0 && v >= -1020 && v <= 1020) {
+              out << "    VSTR " << vreg << ", [" << base << ",#" << v << "]"
+                  << endl;
+            } else if (v >= -4096 && v < 4096) {
+              if (v != 0) out << "    ADD r12, " << base << ", #" << v << endl;
+              out << "    VSTR " << vreg << ", [r12,#0]" << endl;
             } else {
-              ctx.load_imm("r14", ir.op2.value, out);
-              out << "    ADD r12, r12, r14" << endl;
+              ctx.load_imm("r14", v, out);
+              out << "    ADD r12, " << base << ", r14" << endl;
+              out << "    VSTR " << vreg << ", [r12,#0]" << endl;
             }
           } else {
             ctx.load("r14", ir.op2, out);
-            out << "    ADD r12, r12, r14" << endl;
+            out << "    ADD r12, " << base << ", r14" << endl;
+            out << "    VSTR " << vreg << ", [r12,#0]" << endl;
           }
-          out << "    VSTR " << vreg << ", [r12,#0]" << endl;
         }
       } else if (ir_wide(ir)) {
         // 64 位存储：写低字与高字（+4）
@@ -1238,18 +1255,54 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
         ctx.store_to_stack_offset("r" + to_string(op3), offset, out);
       } else {
         bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name);
-        int op1 = 12;
-        int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 14;
+        bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);
+        bool op3_in_reg = ir.op3.is_var() && ctx.var_in_reg(ir.op3.name);
+        int op3 = op3_in_reg ? ctx.var_to_reg[ir.op3.name] : 14;
         bool offset_is_small =
             ir.op2.is_imm() && ir.op2.value >= -4096 && ir.op2.value < 4096;
-
-        if (!op2_in_reg && !offset_is_small)
-          ctx.load("r" + to_string(op2), ir.op2, out);
-        ctx.load("r" + to_string(op1), ir.op1, out);
-        if (!op3_in_reg) ctx.load("r" + to_string(op3), ir.op3, out);
-        out << "    STR r" << op3 << ", [r" << op1 << ','
-            << (offset_is_small ? '#' : 'r')
-            << (offset_is_small ? ir.op2.value : op2) << "]" << endl;
+        int b = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 12;
+        int o = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 14;
+        // 值在 r12 而基地址也要装载到 r12 时，值退到 r14
+        if (op3_in_reg && op3 == 12 && !op1_in_reg) {
+          op3 = 14;
+          op3_in_reg = false;
+        }
+        // 偏移与值缺省寄存器同为 r14，二者都需装载时不能一步完成：
+        // 走「地址先合成到 r12，再装值」的保守路径
+        bool off_conflict =
+            !offset_is_small && o == 14 && op3 == 14 && !op3_in_reg;
+        bool base_conflict =
+            offset_is_small && b == 14 && op3 == 14 && !op3_in_reg;
+        if (!off_conflict && !base_conflict &&
+            !(!op1_in_reg && !offset_is_small && op2_in_reg && o == 12)) {
+          if (!op2_in_reg && !offset_is_small)
+            ctx.load("r14", ir.op2, out);
+          if (!op1_in_reg) ctx.load("r12", ir.op1, out);
+          if (!op3_in_reg) ctx.load("r" + to_string(op3), ir.op3, out);
+          out << "    STR r" << op3 << ", [r" << b << ","
+              << (offset_is_small ? '#' : 'r')
+              << (offset_is_small ? ir.op2.value : o) << "]" << endl;
+        } else {
+          if (op1_in_reg) {
+            if (b != 12) out << "    MOV r12, r" << b << endl;
+          } else {
+            ctx.load("r12", ir.op1, out);
+          }
+          if (offset_is_small) {
+            if (ir.op2.value != 0)
+              out << "    ADD r12, r12, #" << ir.op2.value << endl;
+          } else {
+            int o2 = 14;
+            if (op2_in_reg && ctx.var_to_reg[ir.op2.name] != 12) {
+              o2 = ctx.var_to_reg[ir.op2.name];
+            } else {
+              ctx.load("r14", ir.op2, out);
+            }
+            out << "    ADD r12, r12, r" << o2 << endl;
+          }
+          if (!op3_in_reg) ctx.load("r" + to_string(op3), ir.op3, out);
+          out << "    STR r" << op3 << ", [r12]" << endl;
+        }
       }
       }
     }
@@ -1266,20 +1319,36 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
           int offset = ctx.resolve_stack_offset(ir.op1.name) + ir.op2.value;
           ctx.load_from_stack_offset(dreg, offset, out, "VLDR");
         } else {
-          ctx.load("r12", ir.op1, out);
-          if (ir.op2.is_imm()) {
-            if (ir.op2.value >= -4096 && ir.op2.value < 4096) {
-              if (ir.op2.value != 0)
-                out << "    ADD r12, r12, #" << ir.op2.value << endl;
+          // 基址已在寄存器时直接合成地址（省去 r12 搬运），小偏移
+          // 且按 4 对齐时用 VLDR/VSTR 自带偏移
+          bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);
+          string base =
+              op1_in_reg ? "r" + to_string(ctx.var_to_reg[ir.op1.name])
+                         : "r12";
+          if (!op1_in_reg) ctx.load("r12", ir.op1, out);
+          auto vldr_off = [&](const string &reg, long long v) {
+            if (op1_in_reg && v == 0) {
+              out << "    VLDR " << reg << ", [" << base << "]"
+                  << endl;
+            } else if (op1_in_reg && v % 4 == 0 && v >= -1020 && v <= 1020) {
+              out << "    VLDR " << reg << ", [" << base << ",#"
+                  << v << "]" << endl;
+            } else if (v >= -4096 && v < 4096) {
+              if (v != 0) out << "    ADD r12, " << base << ", #" << v << endl;
+              out << "    VLDR " << reg << ", [r12,#0]" << endl;
             } else {
-              ctx.load_imm("r14", ir.op2.value, out);
-              out << "    ADD r12, r12, r14" << endl;
+              ctx.load_imm("r14", v, out);
+              out << "    ADD r12, " << base << ", r14" << endl;
+              out << "    VLDR " << reg << ", [r12,#0]" << endl;
             }
+          };
+          if (ir.op2.is_imm()) {
+            vldr_off(dreg, ir.op2.value);
           } else {
             ctx.load("r14", ir.op2, out);
-            out << "    ADD r12, r12, r14" << endl;
+            out << "    ADD r12, " << base << ", r14" << endl;
+            out << "    VLDR " << dreg << ", [r12,#0]" << endl;
           }
-          out << "    VLDR " << dreg << ", [r12,#0]" << endl;
         }
         if (!(ir.dest.is_var() && ctx.var_in_freg(ir.dest.name))) {
           ctx.store_freg_dest(dbl ? 28 : 30, dbl, ir.dest.name, out);
@@ -1339,14 +1408,16 @@ void generate_function_asm(ir::IRList& irs, ir::IRList::iterator begin,
         }
       } else {
         bool op2_in_reg = ir.op2.is_var() && ctx.var_in_reg(ir.op2.name);
-        int op1 = 12;
+        // 基址已在寄存器时直接用作 LDR 基址寄存器，省去每次 r12 搬运
+        bool op1_in_reg = ir.op1.is_var() && ctx.var_in_reg(ir.op1.name);
+        int op1 = op1_in_reg ? ctx.var_to_reg[ir.op1.name] : 12;
         int op2 = op2_in_reg ? ctx.var_to_reg[ir.op2.name] : 14;
         bool offset_is_small =
             ir.op2.is_imm() && ir.op2.value >= -4096 && ir.op2.value < 4096;
 
         if (!op2_in_reg && !offset_is_small)
           ctx.load("r" + to_string(op2), ir.op2, out);
-        ctx.load("r" + to_string(op1), ir.op1, out);
+        if (!op1_in_reg) ctx.load("r12", ir.op1, out);
         out << "    LDR r" << dest << ", [r" << op1 << ","
             << (offset_is_small ? '#' : 'r')
             << (offset_is_small ? ir.op2.value : op2) << "]" << endl;
